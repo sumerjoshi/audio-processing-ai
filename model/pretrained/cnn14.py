@@ -7,6 +7,7 @@ import math
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+import gzip
 
 import torch
 import torch.nn as nn
@@ -80,9 +81,15 @@ class ConvBlock(nn.Module):
         return x
 
 
+def load_compressed_model(model_path):
+    """Load a gzipped model file."""
+    with gzip.open(model_path, 'rb') as f:
+        return torch.load(f)
+
+
 class Cnn14(nn.Module):
     def __init__(self, sample_rate, window_size, hop_size, mel_bins, fmin, 
-        fmax, classes_num):
+        fmax, classes_num, pretrained=True):
         
         super(Cnn14, self).__init__()
 
@@ -120,6 +127,12 @@ class Cnn14(nn.Module):
         self.fc_audioset = nn.Linear(2048, classes_num, bias=True)
         
         self.init_weight()
+
+        if pretrained:
+            model_path = os.path.join(os.path.dirname(__file__), 'Cnn14_16k_mAP=0.438.pth.gz')
+            if os.path.exists(model_path):
+                state_dict = load_compressed_model(model_path)
+                self.load_state_dict(state_dict)
 
     def init_weight(self):
         init_bn(self.bn0)
