@@ -20,6 +20,7 @@ dependencies = [
     { name = "numpy", version = "2.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "torch" },
     { name = "torchaudio" },
+    { name = "tqdm" },
 ]
 
 [package.metadata]
@@ -28,6 +29,16 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.0.2" },
     { name = "torch", specifier = ">=2.7.1" },
     { name = "torchaudio", specifier = ">=2.7.1" },
+    { name = "tqdm", specifier = ">=4.67.1" },
+]
+
+[[package]]
+name = "colorama"
+version = "0.4.6"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44", size = 27697, upload-time = "2022-10-25T02:36:22.414Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6", size = 25335, upload-time = "2022-10-25T02:36:20.889Z" },
 ]
 
 [[package]]
@@ -1263,6 +1274,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/a5/57/6f7c8b9c00970248498152549f004587db0a83e6caad0025c9723994ffc9/torchaudio-2.7.1-cp39-cp39-manylinux_2_28_aarch64.whl", hash = "sha256:e8b2da11a7f7782b00b823c99e812eb00ee8b3455ad474f8fd42a0da0bc4f46a", size = 1681224, upload-time = "2025-06-04T17:43:53.36Z" },
     { url = "https://files.pythonhosted.org/packages/37/7b/0bf5da00d883b241bd4986e2d26dc1aabd16cc860c4c5d4bc9237e6350c3/torchaudio-2.7.1-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:9ce8aed225d5ce65705d30f6ef8e457d329fe6ea0b8729ad953ba99e87da264e", size = 3502377, upload-time = "2025-06-04T17:43:44.992Z" },
     { url = "https://files.pythonhosted.org/packages/26/99/00764e98c82d0b48a1e1fd059a0f10cf1bec741013a7e9c05077bd1fd481/torchaudio-2.7.1-cp39-cp39-win_amd64.whl", hash = "sha256:30e21f043f5cc50f703c2cf0de75633e2c720227f9bf848ffc9b8b987871b3fc", size = 2477692, upload-time = "2025-06-04T17:43:43.799Z" },
+]
+
+[[package]]
+name = "tqdm"
+version = "4.67.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a8/4b/29b4ef32e036bb34e4ab51796dd745cdba7ed47ad142a9f4a1eb8e0c744d/tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2", size = 169737, upload-time = "2024-11-24T20:12:22.481Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d0/30/dc54f88dd4a2b5dc8a0279bdd7270e735851848b762aeb1c1184ed1f6b14/tqdm-4.67.1-py3-none-any.whl", hash = "sha256:26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2", size = 78540, upload-time = "2024-11-24T20:12:19.698Z" },
 ]
 
 [[package]]

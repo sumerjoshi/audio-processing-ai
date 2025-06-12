@@ -41,6 +41,7 @@ threadpoolctl==3.6.0
 torch==2.7.1
 torchaudio==2.7.1
 torchlibrosa==0.1.0
+tqdm==4.67.1
 typing-extensions==4.14.0
 urllib3==2.4.0
 zipp==3.23.0
