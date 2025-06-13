@@ -17,4 +17,4 @@ setup(
         "scikit-learn>=1.6.1",
     ],
     python_requires=">=3.8",
-) 
+)

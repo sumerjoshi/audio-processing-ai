@@ -1,1 +1,1 @@
-"""Inference package for audio processing AI.""" 
+"""Inference package for audio processing AI."""

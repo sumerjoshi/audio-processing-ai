@@ -1,1 +1,1 @@
-"""Model package for audio processing AI.""" 
+"""Model package for audio processing AI."""

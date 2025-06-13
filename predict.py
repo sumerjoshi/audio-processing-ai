@@ -15,27 +15,31 @@ from tqdm.auto import tqdm
 from model.pretrained.dual_head_cnn14 import DualHeadCnn14
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-AUDIOSCENE_TAGS = [line.strip() for line in open("inference/audioset_class_labels.txt", encoding='utf-8')]
+AUDIOSCENE_TAGS = [
+    line.strip()
+    for line in open("inference/audioset_class_labels.txt", encoding="utf-8")
+]
 DEFAULT_CSV_PATH = f"predictions_{timestamp}.csv"
+
 
 def preprocess_audio(file_path, sample_rate=16000, duration=10.0) -> Tensor:
     waveform, sr = torchaudio.load(file_path)
 
     if sr != sample_rate:
         waveform = torchaudio.transforms.Resample(sr, sample_rate)(waveform)
-    
+
     if waveform.shape[0] > 1:
         waveform = waveform.mean(dim=0, keepdim=True)
 
     waveform_len = waveform.shape[1]
-    target_len = int(sample_rate*duration)
+    target_len = int(sample_rate * duration)
 
     if waveform_len < target_len:
         pad = target_len - waveform_len
         waveform = F.pad(waveform, (0, pad))
     else:
         start = np.random.randint(0, waveform_len - target_len + 1)
-        waveform = waveform[:, start:start + target_len]
+        waveform = waveform[:, start : start + target_len]
 
     mel_spec = MelSpectrogram(
         sample_rate=sample_rate,
@@ -43,11 +47,12 @@ def preprocess_audio(file_path, sample_rate=16000, duration=10.0) -> Tensor:
         hop_length=320,
         n_mels=64,
         f_min=50,
-        f_max=8000
+        f_max=8000,
     )(waveform)
-    
+
     logmel = torch.log(mel_spec + 1e-6)
     return logmel.unsqueeze(0)
+
 
 def predict_one(model, input_tensor: Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     with torch.no_grad():
@@ -56,20 +61,37 @@ def predict_one(model, input_tensor: Tensor) -> Tuple[torch.Tensor, torch.Tensor
         tag_probs = torch.sigmoid(tag_logits).squeeze().cpu().numpy()
     return ai_prob, tag_probs
 
-def write_header(csv_path):
-    with open(csv_path, mode='w', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f)
-        writer.writerow([
-            "filename", "is_ai_generated", "ai_confidence",
-            "top_tag_1", "tag_1_confidence",
-            "top_tag_2", "tag_2_confidence",
-            "top_tag_3", "tag_3_confidence",
-            "top_tag_4", "tag_4_confidence",
-            "top_tag_5", "tag_5_confidence"
-        ])
 
-def append_row(csv_path: str, file_path: str, ai_label: Literal['Yes', 'No'], ai_prob: Tensor, top5_tags: list[Tuple[str, float]]) -> None:
-    with open(csv_path, mode='a', newline='', encoding='utf-8') as f:
+def write_header(csv_path):
+    with open(csv_path, mode="w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            [
+                "filename",
+                "is_ai_generated",
+                "ai_confidence",
+                "top_tag_1",
+                "tag_1_confidence",
+                "top_tag_2",
+                "tag_2_confidence",
+                "top_tag_3",
+                "tag_3_confidence",
+                "top_tag_4",
+                "tag_4_confidence",
+                "top_tag_5",
+                "tag_5_confidence",
+            ]
+        )
+
+
+def append_row(
+    csv_path: str,
+    file_path: str,
+    ai_label: Literal["Yes", "No"],
+    ai_prob: Tensor,
+    top5_tags: list[Tuple[str, float]],
+) -> None:
+    with open(csv_path, mode="a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         row = [file_path, ai_label, f"{ai_prob:.3f}"]
         for tag, conf in top5_tags:
@@ -87,7 +109,9 @@ def predict_folder(folder_path: str, model_path: str, csv_path: str):
 
     write_header(csv_path)
 
-    audio_files_to_test = list(Path(folder_path).rglob("*.wav")) + list(Path(folder_path).rglob("*.mp3"))
+    audio_files_to_test = list(Path(folder_path).rglob("*.wav")) + list(
+        Path(folder_path).rglob("*.mp3")
+    )
 
     for file_path in tqdm(audio_files_to_test, desc="Running Prediction"):
         file_path = str(file_path)
@@ -100,10 +124,19 @@ def predict_folder(folder_path: str, model_path: str, csv_path: str):
 
         append_row(csv_path, Path(file_path).name, ai_label, ai_prob, top5_tags)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--folder", help="Folder containing .mp3/.wav files to predict against", required=True)
-    parser.add_argument("--model",help="Trained model in model/pretrained/saved_models/ or your own trained model", required=True)
+    parser.add_argument(
+        "--folder",
+        help="Folder containing .mp3/.wav files to predict against",
+        required=True,
+    )
+    parser.add_argument(
+        "--model",
+        help="Trained model in model/pretrained/saved_models/ or your own trained model",
+        required=True,
+    )
     args = parser.parse_args()
-    
+
     predict_folder(args.folder, args.model, DEFAULT_CSV_PATH)

@@ -1,26 +1,44 @@
 import torch
 from .cnn14 import Cnn14
 
+
 class DualHeadCnn14(Cnn14):
-    def __init__(self, sample_rate=16000, window_size=1024, 
-                 hop_size=320, mel_bins=64, fmin=50, fmax=8000, classes_num=527, pretrained=True):
-          
-          super().__init__(sample_rate, window_size, hop_size, mel_bins, fmin, fmax, classes_num, pretrained=pretrained)
+    def __init__(
+        self,
+        sample_rate=16000,
+        window_size=1024,
+        hop_size=320,
+        mel_bins=64,
+        fmin=50,
+        fmax=8000,
+        classes_num=527,
+        pretrained=True,
+    ):
+        super().__init__(
+            sample_rate,
+            window_size,
+            hop_size,
+            mel_bins,
+            fmin,
+            fmax,
+            classes_num,
+            pretrained=pretrained,
+        )
 
-          self.fc1 = torch.nn.Linear(2048, 2048)
-          self.dropout = torch.nn.Dropout(p=0.5)
+        self.fc1 = torch.nn.Linear(2048, 2048)
+        self.dropout = torch.nn.Dropout(p=0.5)
 
-          self.fc_audioset = self.fc_audioset
+        self.fc_audioset = self.fc_audioset
 
-          self.fc_binary = torch.nn.Linear(2048, 1)
+        self.fc_binary = torch.nn.Linear(2048, 1)
 
-          self.bn0 = torch.nn.BatchNorm2d(1)
-    
+        self.bn0 = torch.nn.BatchNorm2d(1)
+
     def forward(self, x):
         """
         Args:
             x: (B, 32000)
-        
+
         Returns:
             binary_logit: shape(B,1)
             tag_logits: shape (B, 527)
@@ -29,14 +47,14 @@ class DualHeadCnn14(Cnn14):
 
         x = self.spectrogram_extractor(x)
         x = self.logmel_extractor(x)
-        
+
         print("Shape after logmel_extractor:", x.shape)
-        
+
         # Transpose to (B, C=1, mel_bins, time) for CNN input
-        x = x.transpose(2, 3)                  # -> (B, 1, mel_bins, time)
+        x = x.transpose(2, 3)  # -> (B, 1, mel_bins, time)
 
         # CNN pipeline
-        x = self.bn0(x)                        # BatchNorm2d(1)
+        x = self.bn0(x)  # BatchNorm2d(1)
         print("Shape before bn0:", x.shape)
 
         x = self.bn0(x)
@@ -48,10 +66,10 @@ class DualHeadCnn14(Cnn14):
         x = self.conv_block6(x)
 
         x = torch.mean(x, dim=3)  # time avg
-        x = x.mean(dim=2)         # freq avg
+        x = x.mean(dim=2)  # freq avg
         x = self.fc1(x)
         x = self.dropout(x)
-        
+
         # Dual heads
         tag_logits = self.fc_audioset(x)
         binary_logit = self.fc_binary(x)

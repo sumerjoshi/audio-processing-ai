@@ -23,34 +23,50 @@ def train_model(data_folder: str, num_epochs: int, saved_path: str = save_path) 
 
     # 500-2000 file range used for training. unfreezing things here.
     for name, param in model.named_parameters():
-         if any(block in name for block in ["conv_block6", "fc_binary"]):
-              param.requires_grad = True
-         else:
-              param.requires_grad = False
+        if any(block in name for block in ["conv_block6", "fc_binary"]):
+            param.requires_grad = True
+        else:
+            param.requires_grad = False
 
     loss_fn = nn.BCEWithLogitsLoss()
 
     # only optimize trainable parameters
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4)
+    optimizer = optim.Adam(
+        filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4
+    )
 
-    train_loop(model=model, loader=loader, num_epochs=num_epochs, saved_path=saved_path, optimizer=optimizer, loss_fn=loss_fn)
+    train_loop(
+        model=model,
+        loader=loader,
+        num_epochs=num_epochs,
+        saved_path=saved_path,
+        optimizer=optimizer,
+        loss_fn=loss_fn,
+    )
 
-def train_loop(model: DualHeadCnn14, loader: DataLoader, num_epochs: int, saved_path: str, optimizer: Adam, loss_fn: BCEWithLogitsLoss) -> None:
+
+def train_loop(
+    model: DualHeadCnn14,
+    loader: DataLoader,
+    num_epochs: int,
+    saved_path: str,
+    optimizer: Adam,
+    loss_fn: BCEWithLogitsLoss,
+) -> None:
     model.train()
     for epoch in range(num_epochs):
         running_loss = 0.0
         for each_input, labels in loader:
-                print(f"type(each_input): {type(each_input)}")
-                labels = labels.float().unsqueeze(1)
-                binary_logits, _ = model(each_input)
-                loss = loss_fn(binary_logits, labels)
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
-                running_loss += loss.item()
+            print(f"type(each_input): {type(each_input)}")
+            labels = labels.float().unsqueeze(1)
+            binary_logits, _ = model(each_input)
+            loss = loss_fn(binary_logits, labels)
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            running_loss += loss.item()
 
-
-        logging.debug(f"Epoch {epoch + 1}, Loss: {running_loss:.4f}") 
+        logging.debug(f"Epoch {epoch + 1}, Loss: {running_loss:.4f}")
 
     torch.save(model.state_dict(), saved_path)
     logging.info(f"Model saved to {saved_path}")
@@ -62,18 +78,28 @@ def dir_path(string) -> str:
     else:
         raise NotADirectoryError(string)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        prog="train.py",
-        description="Python File to finetune audio files"
+        prog="train.py", description="Python File to finetune audio files"
     )
-    parser.add_argument('--num-epochs', type=int, default=5, help='Number of epochs for finetuning')
-    parser.add_argument('--dataFolder', type=dir_path, default="data/train/", help='Data to Load to Train')
-    parser.add_argument('--savePath', help="Needs to be a file path to a .pth file to save the model", required=True)
+    parser.add_argument(
+        "--num-epochs", type=int, default=5, help="Number of epochs for finetuning"
+    )
+    parser.add_argument(
+        "--dataFolder",
+        type=dir_path,
+        default="data/train/",
+        help="Data to Load to Train",
+    )
+    parser.add_argument(
+        "--savePath",
+        help="Needs to be a file path to a .pth file to save the model",
+        required=True,
+    )
     args = parser.parse_args()
 
     dataFolder = args.dataFolder
     num_epochs = args.num_epochs
     savePath = args.savePath
     train_model(dataFolder, num_epochs, saved_path=savePath)
-

@@ -101,3 +101,45 @@ python predict.py --folder path/to/audio/files --model model/saved_models/your_m
 - Training data should be organized in the `data/train/` directory
 - Model checkpoints are saved in `model/saved_models/`
 - The project is installed as a Python package for proper import handling
+
+## Code Quality
+
+This project uses Ruff for both linting and formatting Python code. Ruff is a fast Python linter and formatter written in Rust.
+
+### Using Ruff
+
+1. Install Ruff (it's already included in the dev dependencies):
+```bash
+# Using pip (recommended if you want to use your existing virtual environment)
+pip install -e ".[dev]"
+
+# OR using uv pip (if you want to use uv but keep your current virtual environment)
+uv pip install -e ".[dev]"
+
+# Note: Do NOT use 'uv venv' unless you want to create a new virtual environment
+# with pyenv. If you want to use uv while keeping your current environment,
+# use 'uv pip' instead.
+```
+
+2. Format your code:
+```bash
+ruff format .
+```
+
+3. Lint your code:
+```bash
+ruff check .
+```
+
+4. Fix linting issues automatically:
+```bash
+ruff check --fix .
+```
+
+The Ruff configuration is in `pyproject.toml`. Currently, it:
+- Uses a line length of 88 characters (same as Black)
+- Targets Python 3.9
+- Enables pycodestyle (`E`) and Pyflakes (`F`) rules by default
+- Ignores line length violations (`E501`)
+
+You can customize the Ruff configuration by modifying the `[tool.ruff]` section in `pyproject.toml`.

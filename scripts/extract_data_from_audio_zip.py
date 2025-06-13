@@ -8,6 +8,7 @@ from datetime import datetime
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M")
 
+
 def extract_first_audio_files_from_zip(zip_path, output_dir, max_files=500) -> None:
     """
     Extract the first max_files (MP3 and WAV format)
@@ -16,19 +17,19 @@ def extract_first_audio_files_from_zip(zip_path, output_dir, max_files=500) -> N
     Args:
         zip_file: Path to the zip file
         output_dir: Directory to extract files to
-        max_files: Maximum number of audio files to extract    
+        max_files: Maximum number of audio files to extract
     """
 
     # Create output directory
     output_path = Path(output_dir)
     output_path.mkdir(exist_ok=True)
 
-    audio_extensions = {'.mp3', '.wav'}
+    audio_extensions = {".mp3", ".wav"}
     extracted_count = 0
 
     print(f"Opening zip file: {zip_path}")
 
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
         # Get all file names in the zip
         all_files = zip_ref.namelist()
 
@@ -43,7 +44,6 @@ def extract_first_audio_files_from_zip(zip_path, output_dir, max_files=500) -> N
 
         # Extracting first max_files audio files
         for file_path in audio_files[:max_files]:
-
             try:
                 zip_ref.extract(file_path, output_path)
                 extracted_count += 1
@@ -51,7 +51,7 @@ def extract_first_audio_files_from_zip(zip_path, output_dir, max_files=500) -> N
                 # Move file to root of output_dir
                 source_path = output_path / file_path
                 file_name = Path(file_path).name
-                dest_path = output_path/file_name
+                dest_path = output_path / file_name
 
                 # Handle duplicate names by adding a counter
                 counter = 1
@@ -60,7 +60,7 @@ def extract_first_audio_files_from_zip(zip_path, output_dir, max_files=500) -> N
                     stem = original_dest.stem
                     suffix = original_dest.suffix
                     dest_path = output_path / f"{stem}_{counter}{suffix}"
-                
+
                 shutil.move(str(source_path), str(dest_path))
 
                 # Clean up directories
@@ -79,7 +79,6 @@ def extract_first_audio_files_from_zip(zip_path, output_dir, max_files=500) -> N
                 print(f"Error extracting {file_path}: {e}")
                 continue
 
-    
     print(f"\nExtraction Complete!")
     print(f"Extracted {extracted_count} audio files to '{output_dir}' directory")
 
