@@ -7,6 +7,8 @@ from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.optim import Adam
+from torch.nn import BCEWithLogitsLoss
 import logging
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M")
@@ -31,22 +33,27 @@ def train_model(dataFolder: str, epochs: int, saved_path: str = save_path) -> No
     # only optimize trainable parameters
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4)
 
+    train_loop(model, loader, optimizer, epochs, loss_fn, saved_path)
+
+def train_loop(model: DualHeadCnn14, loader: DataLoader, epochs: int, saved_path: str, optimizer: Adam, loss_fn: BCEWithLogitsLoss) -> None:
     model.train()
     for epoch in range(epochs):
         running_loss = 0.0
-        for inputs, labels in loader:
+        for each_input, labels in loader:
+                print(f"type(each_input): {type(each_input)}")
                 labels = labels.float().unsqueeze(1)
-                binary_logits, _ = model(inputs)
+                binary_logits, _ = model(each_input)
                 loss = loss_fn(binary_logits, labels)
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
                 running_loss += loss.item()
 
-        logging.DEBUG(f"Epoch {epoch + 1}, Loss: {running_loss:.4f}") 
+
+        logging.debug(f"Epoch {epoch + 1}, Loss: {running_loss:.4f}") 
 
     torch.save(model.state_dict(), saved_path)
-    logging.INFO(f"Model saved to {saved_path}")
+    logging.info(f"Model saved to {saved_path}")
 
 
 def dir_path(string) -> str:
