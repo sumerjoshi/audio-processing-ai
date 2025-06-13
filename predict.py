@@ -83,7 +83,6 @@ def predict_folder(folder_path: str, model_path: str, csv_path: str):
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval().to(device)
 
-    csv_path = 
     write_header(csv_path)
 
     audio_files_to_test = list(Path(folder_path).rglob("*.wav")) + list(Path(folder_path).rglob("*.mp3"))
