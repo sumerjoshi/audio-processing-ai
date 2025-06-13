@@ -18,7 +18,9 @@ from torch.nn.parameter import Parameter
 from torchlibrosa.stft import Spectrogram, LogmelFilterBank
 from torchlibrosa.augmentation import SpecAugmentation
 from .pytorch_utils import do_mixup, pad_framewise_output, Interpolator
- 
+
+# Path to the Pretrained Model. Come back to this later to update
+PRETRAINED_MODEL_PATH = 'model/pretrained/pretrained_models/Cnn14_16k_mAP=0.438.pth.gz'
 
 def init_layer(layer):
     """Initialize a Linear or Convolutional layer. """
@@ -129,7 +131,7 @@ class Cnn14(nn.Module):
         self.init_weight()
 
         if pretrained:
-            model_path = os.path.join(os.path.dirname(__file__), 'Cnn14_16k_mAP=0.438.pth.gz')
+            model_path = os.path.join(os.path.dirname(__file__), PRETRAINED_MODEL_PATH)
             if os.path.exists(model_path):
                 state_dict = load_compressed_model(model_path)
                 self.load_state_dict(state_dict)

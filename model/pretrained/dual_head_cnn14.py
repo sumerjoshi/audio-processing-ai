@@ -1,5 +1,5 @@
-from torch.nn import nn
-from cnn14 import Cnn14
+import torch.nn as nn
+from .cnn14 import Cnn14
 
 class DualHeadCnn14(Cnn14):
     def __init__(self, pretrained=True):
