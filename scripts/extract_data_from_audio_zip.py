@@ -4,8 +4,11 @@ import zipfile
 import os
 from pathlib import Path
 import shutil
+from datetime import datetime
 
-def extract_first_audio_files_from_zip(zip_path, output_dir="audio_files", max_files=750) -> None:
+timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+
+def extract_first_audio_files_from_zip(zip_path, output_dir, max_files=500) -> None:
     """
     Extract the first max_files (MP3 and WAV format)
     here from Zip Archive
@@ -88,9 +91,10 @@ def extract_first_audio_files_from_zip(zip_path, output_dir="audio_files", max_f
 
 if __name__ == "__main__":
     zip_file = "fma_small.zip"
+    folder_name = f"audio_files_{timestamp}"
 
     if not os.path.exists(zip_file):
         print(f"Error: {zip_file} not found!")
         exit(1)
 
-    extract_first_audio_files_from_zip(zip_file)
+    extract_first_audio_files_from_zip(zip_file, folder_name)

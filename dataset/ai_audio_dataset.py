@@ -3,9 +3,16 @@ import torch
 import torchaudio
 import random
 from typing import Tuple
+from zipfile import ZipFile
 
 class AIAudioDataset(torch.utils.data.Dataset):
     def __init__(self, root_dir, sample_rate=16000, duration=10.0) -> None:
+        """
+        Args:
+            root_dir: str  Path to .mp3 and .wav files to create the training. 
+            sample_rate: int  set to 16khz for training
+            duration: float   set to 10 seconds for sampling
+        """
         self.paths = list(Path(root_dir).rglob("*.wav")) + list(Path(root_dir).rglob("*.mp3"))
         self.sample_rate = sample_rate
         self.duration = duration
@@ -48,4 +55,3 @@ class AIAudioDataset(torch.utils.data.Dataset):
 
         label = 1 if "ai" in str(path).lower() else 0
         return logmel.squeeze(0), torch.tensor(label)
-

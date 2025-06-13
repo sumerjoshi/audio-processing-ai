@@ -13,6 +13,7 @@ import tqdm
 from typing import Literal
 from datetime import datetime
 
+timestamp = datetime.now().strftime("%Y%m%d_%H%M")
 AUDIOSCENE_TAGS = [line.strip() for line in open("inference/audioset_class_labels.txt")]
 
 def preprocess_audio(file_path, sample_rate=16000, duration=10.0) -> Tensor:
@@ -34,7 +35,7 @@ def preprocess_audio(file_path, sample_rate=16000, duration=10.0) -> Tensor:
         start = np.random.randint(0, waveform_len - target_len + 1)
         waveform = waveform[:, start:start + target_len]
 
-    mel_spec = torchaudio.transforms.MelSpectrogram(
+    mel_spec = MelSpectrogram(
         sample_rate=sample_rate,
         n_fft=1024,
         hop_length=320,
@@ -99,9 +100,9 @@ def predict_folder(folder_path: str, model_path: str, csv_path="predictions.csv"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--folder", help="Folder containing .mp3/.wav files", required=True)
-    parser.add_argument("--model", default="model/pretrained/saved_models/...", help="Model that was Trained against data")
-    parser.add_argument("--out", default="predictions.csv", help="Output CSV File")
+    parser.add_argument("--folder", help="Folder containing .mp3/.wav files to predict against", required=True)
+    parser.add_argument("--model",help="Model that was Trained against data in model/pretrained/saved_models/ or your own trained model")
+    parser.add_argument("--out", default=f"predictions_{timestamp}.csv", help="Output CSV File")
     args = parser.args()
 
     predict_folder(args.folder, args.model, args.out)
