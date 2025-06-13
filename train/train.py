@@ -62,9 +62,11 @@ if __name__ == "__main__":
     )
     parser.add_argument('--epoch', type=int, default=5, help='Epoch is needed for finetuning')
     parser.add_argument('--dataFolder', type=dir_path, default="data/train/", help='Data to Load to Train')
+    parser.add_argument('--savePath', help="Needs to be a file path to a .pth file to save the model", required=True)
     args = parser.parse_args()
 
     dataFolder = args.dataFolder
     epochs = args.epoch
-    train_model(dataFolder, epochs)
+    savePath = args.savePath
+    train_model(dataFolder, epochs, saved_path=savePath)
 

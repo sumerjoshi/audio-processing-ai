@@ -101,7 +101,7 @@ def predict_folder(folder_path: str, model_path: str, csv_path="predictions.csv"
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--folder", help="Folder containing .mp3/.wav files to predict against", required=True)
-    parser.add_argument("--model",help="Model that was Trained against data in model/pretrained/saved_models/ or your own trained model")
+    parser.add_argument("--model",help="Trained model in model/pretrained/saved_models/ or your own trained model")
     parser.add_argument("--out", default=f"predictions_{timestamp}.csv", help="Output CSV File")
     args = parser.args()
 

@@ -1,3 +1,7 @@
-# Finetuning Data Folder
+# Data Folder and train folder Within
 
-This data folder is store about (500-1000) files each of real music from FMA, and AI generated music from Suno/Udio. The purpose of this is to finetune a pretrained model.
+This data folder is used to store any files that are going to be used for training the model. Please place any files
+or folder with files that have real music (.mp3, .wav) only in the real folder. Any AI Generated music should go in the AI Folder.
+
+# How to Run
+
