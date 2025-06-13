@@ -75,7 +75,7 @@ def append_row(csv_path: str, file_path: str, ai_label: Literal['Yes', 'No'], ai
         writer.writerow(row)
 
 
-def predict_folder(folder_path: str, model_path: str, csv_path="predictions.csv"):
+def predict_folder(folder_path: str, model_path: str, csv_path: str):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = DualHeadCnn14(pretrained=False)
@@ -83,6 +83,7 @@ def predict_folder(folder_path: str, model_path: str, csv_path="predictions.csv"
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval().to(device)
 
+    csv_path = 
     write_header(csv_path)
 
     audio_files_to_test = list(Path(folder_path).rglob("*.wav")) + list(Path(folder_path).rglob("*.mp3"))
@@ -101,8 +102,8 @@ def predict_folder(folder_path: str, model_path: str, csv_path="predictions.csv"
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--folder", help="Folder containing .mp3/.wav files to predict against", required=True)
-    parser.add_argument("--model",help="Trained model in model/pretrained/saved_models/ or your own trained model")
-    parser.add_argument("--out", default=f"predictions_{timestamp}.csv", help="Output CSV File")
+    parser.add_argument("--model",help="Trained model in model/pretrained/saved_models/ or your own trained model", required=True)
     args = parser.args()
-
-    predict_folder(args.folder, args.model, args.out)
+    
+    csv_path = f"predictions_{timestamp}.csv"
+    predict_folder(args.folder, args.model, csv_path)

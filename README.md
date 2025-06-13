@@ -58,7 +58,7 @@ so gzip your file beforehand**
 Steps:
 1. First place files in audio-processing-ai/data/train (if you are going to finetune data against your model)
 2. Figure out the model you are going to finetune against
-3. Update this line (PRETRAINED_MODEL_PATH = 'model/pretrained/pretrained_models/Cnn14_16k_mAP=0.438.pth.gz') at the top to the .pth.gz file location of your choice
+3. Update this line (PRETRAINED_MODEL_PATH = 'model/pretrained/pretrained_models/Cnn14_16k_mAP=0.438.pth.gz') at cnn14.py to the .pth.gz file location of your choice
 
 To train the model:
 ```bash
@@ -71,14 +71,16 @@ python train.py --epoch 5 --dataFolder data/train/ --savePath model/saved_models
 If you have an already trained/finetuned model and you just want to run the prediction,
 run it as such.
 
-Folder is the path to the audio files you want to test
+Folder is the path to the audio files you want to test against.
 
 Example lists the model path as model/saved_models/your_model.pth but that is changeable 
 depending on where you saved it.
 
+The outputted file is predictions_timestamp.csv
+
 To run predictions on audio files:
 ```bash
-python predict.py --folder path/to/audio/files --model model/saved_models/your_model.pth --out predictions.csv
+python predict.py --folder path/to/audio/files --model model/saved_models/your_model.pth
 ```
 
 ## Project Structure
