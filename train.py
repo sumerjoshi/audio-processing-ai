@@ -15,8 +15,8 @@ timestamp = datetime.now().strftime("%Y%m%d_%H%M")
 save_path = f"model/saved_models/final_model_{timestamp}.pth"
 
 
-def train_model(dataFolder: str, epochs: int, saved_path: str = save_path) -> None:
-    dataset = AIAudioDataset(dataFolder)
+def train_model(data_folder: str, num_epochs: int, saved_path: str = save_path) -> None:
+    dataset = AIAudioDataset(data_folder)
     loader = DataLoader(dataset, batch_size=8, shuffle=True)
 
     model = DualHeadCnn14(pretrained=True)
@@ -33,11 +33,11 @@ def train_model(dataFolder: str, epochs: int, saved_path: str = save_path) -> No
     # only optimize trainable parameters
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4)
 
-    train_loop(model, loader, optimizer, epochs, loss_fn, saved_path)
+    train_loop(model=model, loader=loader, num_epochs=num_epochs, saved_path=saved_path, optimizer=optimizer, loss_fn=loss_fn)
 
-def train_loop(model: DualHeadCnn14, loader: DataLoader, epochs: int, saved_path: str, optimizer: Adam, loss_fn: BCEWithLogitsLoss) -> None:
+def train_loop(model: DualHeadCnn14, loader: DataLoader, num_epochs: int, saved_path: str, optimizer: Adam, loss_fn: BCEWithLogitsLoss) -> None:
     model.train()
-    for epoch in range(epochs):
+    for epoch in range(num_epochs):
         running_loss = 0.0
         for each_input, labels in loader:
                 print(f"type(each_input): {type(each_input)}")
@@ -67,13 +67,13 @@ if __name__ == "__main__":
         prog="train.py",
         description="Python File to finetune audio files"
     )
-    parser.add_argument('--epoch', type=int, default=5, help='Epoch is needed for finetuning')
+    parser.add_argument('--num-epochs', type=int, default=5, help='Number of epochs for finetuning')
     parser.add_argument('--dataFolder', type=dir_path, default="data/train/", help='Data to Load to Train')
     parser.add_argument('--savePath', help="Needs to be a file path to a .pth file to save the model", required=True)
     args = parser.parse_args()
 
     dataFolder = args.dataFolder
-    epochs = args.epoch
+    num_epochs = args.num_epochs
     savePath = args.savePath
-    train_model(dataFolder, epochs, saved_path=savePath)
+    train_model(dataFolder, num_epochs, saved_path=savePath)
 

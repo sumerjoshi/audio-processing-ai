@@ -1,20 +1,22 @@
 import argparse
 import csv
+from datetime import datetime
+from pathlib import Path
+from typing import Tuple, Literal
+
 import numpy as np
 import torch
-from torch import Tensor
-import torchaudio
 import torch.nn.functional as F
-from typing import Tuple
-from pathlib import Path
+import torchaudio
+from torch import Tensor
 from torchaudio.transforms import MelSpectrogram
+from tqdm.auto import tqdm
+
 from model.pretrained.dual_head_cnn14 import DualHeadCnn14
-import tqdm
-from typing import Literal
-from datetime import datetime
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-AUDIOSCENE_TAGS = [line.strip() for line in open("inference/audioset_class_labels.txt")]
+AUDIOSCENE_TAGS = [line.strip() for line in open("inference/audioset_class_labels.txt", encoding='utf-8')]
+DEFAULT_CSV_PATH = f"predictions_{timestamp}.csv"
 
 def preprocess_audio(file_path, sample_rate=16000, duration=10.0) -> Tensor:
     waveform, sr = torchaudio.load(file_path)
@@ -55,9 +57,9 @@ def predict_one(model, input_tensor: Tensor) -> Tuple[torch.Tensor, torch.Tensor
     return ai_prob, tag_probs
 
 def write_header(csv_path):
-    with open(csv_path, mode='w', newline='') as f:
+    with open(csv_path, mode='w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
-        writer.write_row([
+        writer.writerow([
             "filename", "is_ai_generated", "ai_confidence",
             "top_tag_1", "tag_1_confidence",
             "top_tag_2", "tag_2_confidence",
@@ -67,7 +69,7 @@ def write_header(csv_path):
         ])
 
 def append_row(csv_path: str, file_path: str, ai_label: Literal['Yes', 'No'], ai_prob: Tensor, top5_tags: list[Tuple[str, float]]) -> None:
-    with open(csv_path, mode='a', newline='') as f:
+    with open(csv_path, mode='a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         row = [file_path, ai_label, f"{ai_prob:.3f}"]
         for tag, conf in top5_tags:
@@ -102,7 +104,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--folder", help="Folder containing .mp3/.wav files to predict against", required=True)
     parser.add_argument("--model",help="Trained model in model/pretrained/saved_models/ or your own trained model", required=True)
-    args = parser.args()
+    args = parser.parse_args()
     
-    csv_path = f"predictions_{timestamp}.csv"
-    predict_folder(args.folder, args.model, csv_path)
+    predict_folder(args.folder, args.model, DEFAULT_CSV_PATH)
