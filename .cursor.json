@@ -1,0 +1,36 @@
+{
+    "projectRoot": ".",
+    "python": {
+        "interpreter": "python3",
+        "venvPath": ".venv",
+        "analysis": {
+            "typeCheckingMode": "basic",
+            "diagnosticMode": "workspace",
+            "useLibraryCodeForTypes": true
+        }
+    },
+    "search": {
+        "exclude": [
+            ".git",
+            ".venv",
+            "__pycache__",
+            "*.pyc",
+            "*.pth",
+            "*.pth.gz",
+            "model/saved_models/*"
+        ]
+    },
+    "format": {
+        "python": {
+            "formatter": "black",
+            "formatOnSave": true
+        }
+    },
+    "lint": {
+        "python": {
+            "enabled": true,
+            "pylint": true,
+            "flake8": true
+        }
+    }
+} 
