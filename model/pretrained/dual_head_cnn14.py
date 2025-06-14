@@ -43,19 +43,14 @@ class DualHeadCnn14(Cnn14):
             binary_logit: shape(B,1)
             tag_logits: shape (B, 527)
         """
-        print("Input shape:", x.shape)
-
         x = self.spectrogram_extractor(x)
         x = self.logmel_extractor(x)
-
-        print("Shape after logmel_extractor:", x.shape)
 
         # Transpose to (B, C=1, mel_bins, time) for CNN input
         x = x.transpose(2, 3)  # -> (B, 1, mel_bins, time)
 
         # CNN pipeline
         x = self.bn0(x)  # BatchNorm2d(1)
-        print("Shape before bn0:", x.shape)
 
         x = self.bn0(x)
         x = self.conv_block1(x)

@@ -10,12 +10,11 @@ import torch.optim as optim
 from torch.optim import Adam
 from torch.nn import BCEWithLogitsLoss
 import logging
+from tqdm.auto import tqdm
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-save_path = f"model/saved_models/final_model_{timestamp}.pth"
 
-
-def train_model(data_folder: str, num_epochs: int, saved_path: str = save_path) -> None:
+def train_model(data_folder: str, num_epochs: int, saved_path: str) -> None:
     dataset = AIAudioDataset(data_folder)
     loader = DataLoader(dataset, batch_size=8, shuffle=True)
 
@@ -32,7 +31,7 @@ def train_model(data_folder: str, num_epochs: int, saved_path: str = save_path) 
 
     # only optimize trainable parameters
     optimizer = optim.Adam(
-        filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4
+        filter(lambda p: p.requires_grad, model.parameters()), lr=1e-5
     )
 
     train_loop(
@@ -56,8 +55,9 @@ def train_loop(
     model.train()
     for epoch in range(num_epochs):
         running_loss = 0.0
+        
+        progress_bar = tqdm(loader, desc=f"Epoch {epoch+1}/{num_epochs}", leave=True)
         for each_input, labels in loader:
-            print(f"type(each_input): {type(each_input)}")
             labels = labels.float().unsqueeze(1)
             binary_logits, _ = model(each_input)
             loss = loss_fn(binary_logits, labels)
@@ -65,8 +65,12 @@ def train_loop(
             optimizer.step()
             optimizer.zero_grad()
             running_loss += loss.item()
-
-        logging.debug(f"Epoch {epoch + 1}, Loss: {running_loss:.4f}")
+            
+            avg_loss = running_loss / (progress_bar.n + 1)
+            progress_bar.set_postfix(loss=f"{avg_loss:.4f}")
+            
+        epoch_loss = running_loss / len(loader)
+        logging.debug(f"Epoch {epoch + 1} finished. Avg Loss: {epoch_loss:.4f}")
 
     torch.save(model.state_dict(), saved_path)
     logging.info(f"Model saved to {saved_path}")
@@ -93,7 +97,7 @@ if __name__ == "__main__":
         help="Data to Load to Train",
     )
     parser.add_argument(
-        "--savePath",
+        "--savedPath",
         help="Needs to be a file path to a .pth file to save the model",
         required=True,
     )
@@ -101,5 +105,7 @@ if __name__ == "__main__":
 
     dataFolder = args.dataFolder
     num_epochs = args.num_epochs
-    savePath = args.savePath
-    train_model(dataFolder, num_epochs, saved_path=savePath)
+    saved_path = args.savedPath
+    base_name, extension = os.path.splitext(saved_path)
+    new_saved_path = f"{base_name}_{timestamp}{extension}"
+    train_model(dataFolder, num_epochs, saved_path=new_saved_path)
