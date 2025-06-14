@@ -8,7 +8,7 @@ from zipfile import ZipFile
 
 
 class AIAudioDataset(torch.utils.data.Dataset):
-    def __init__(self, root_dir, sample_rate=16000, duration=10.0) -> None:
+    def __init__(self, root_dir, sample_rate=16000, duration=10.0, train: bool = True) -> None:
         """
         Args:
             root_dir: str  Path to .mp3 and .wav files to create the training.
@@ -21,7 +21,9 @@ class AIAudioDataset(torch.utils.data.Dataset):
         self.sample_rate = sample_rate
         self.duration = duration
         self.target_len = int(sample_rate * duration)
-        self.labels = [1.0 if "ai" in str(f).lower() else 0.0 for f in self.audio_files]
+        
+        self.labels = [1.0 if "ai" in str(Path(f).parent).lower() else 0.0 for f in self.audio_files]
+
 
     def __len__(self) -> int:
         return len(self.audio_files)
@@ -38,6 +40,8 @@ class AIAudioDataset(torch.utils.data.Dataset):
         # Mono mix if stereo
         if waveform.shape[0] > 1:
             waveform = waveform.mean(dim=0, keepdim=True)
+            
+        waveform = waveform / waveform.abs().max()
 
         # Pad or trim
         waveform_len = waveform.shape[1]
@@ -46,6 +50,9 @@ class AIAudioDataset(torch.utils.data.Dataset):
             waveform = F.pad(waveform, (0, pad))
         else:
             waveform = waveform[:, :self.target_len]
+            
+        if self.train:
+            waveform += 0.001 * torch.randn_like(waveform)
 
         # Return as shape: (samples,)
         return waveform.squeeze(0), torch.tensor(self.labels[idx], dtype=torch.float32)

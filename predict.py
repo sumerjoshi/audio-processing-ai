@@ -3,6 +3,7 @@ import csv
 from datetime import datetime
 from pathlib import Path
 from typing import Tuple, Literal
+import wave
 
 import numpy as np
 import torch
@@ -17,7 +18,7 @@ from model.pretrained.dual_head_cnn14 import DualHeadCnn14
 timestamp = datetime.now().strftime("%Y%m%d_%H%M")
 AUDIOSCENE_TAGS = [
     line.strip()
-    for line in open("inference/audioset_class_labels.txt", encoding="utf-8")
+    for line in open("inference/audioset_labels_no_index.txt", encoding="utf-8")
 ]
 DEFAULT_CSV_PATH = f"predictions_{timestamp}.csv"
 
@@ -41,21 +42,13 @@ def preprocess_audio(file_path, sample_rate=16000, duration=10.0) -> Tensor:
         start = np.random.randint(0, waveform_len - target_len + 1)
         waveform = waveform[:, start : start + target_len]
 
-    mel_spec = MelSpectrogram(
-        sample_rate=sample_rate,
-        n_fft=1024,
-        hop_length=320,
-        n_mels=64,
-        f_min=50,
-        f_max=8000,
-    )(waveform)
-
-    logmel = torch.log(mel_spec + 1e-6)
-    return logmel.unsqueeze(0)
-
+    return waveform
 
 def predict_one(model, input_tensor: Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     with torch.no_grad():
+        if input_tensor.ndim == 2:
+            input_tensor = input_tensor.squeeze(0)
+        input_tensor = input_tensor.unsqueeze(0)
         binary_logit, tag_logits = model(input_tensor)
         ai_prob = torch.sigmoid(binary_logit).item()
         tag_probs = torch.sigmoid(tag_logits).squeeze().cpu().numpy()
@@ -119,6 +112,9 @@ def predict_folder(folder_path: str, model_path: str, csv_path: str):
         ai_prob, tag_probs = predict_one(model, input_tensor)
 
         ai_label = "Yes" if ai_prob > 0.5 else "No"
+        print(len(tag_probs))          # Should be 527
+        print(len(AUDIOSCENE_TAGS))    # Must also be 527
+        
         top5_idx = tag_probs.argsort()[-5:][::-1]
         top5_tags = [(AUDIOSCENE_TAGS[i], float(tag_probs[i])) for i in top5_idx]
 

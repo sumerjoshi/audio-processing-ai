@@ -56,32 +56,45 @@ Facebook's Music Gen.
 so gzip your file beforehand**
 
 Steps:
-1. First place files in audio-processing-ai/data/train (if you are going to finetune data against your model)
+1. First place files in audio-processing-ai/data/train (if you are going to finetune data against your model) 
+    **All AI Files should go in the /data/train/ai and all of the real files goes in /data/train/real. This is because we need to do supervised learning befor training the classfier which file is AI music and which is Real**
 2. Figure out the model you are going to finetune against
 3. Update this line (PRETRAINED_MODEL_PATH = 'model/pretrained/pretrained_models/Cnn14_16k_mAP=0.438.pth.gz') at cnn14.py to the .pth.gz file location of your choice
 
 To train the model:
 ```bash
-cd audio-processing-ai
-python train.py --epoch 5 --dataFolder data/train/ --savePath model/saved_models/your_model.pth
+python train.py \
+    --num-epochs 5 \
+    --dataFolder data/train/ \
+    --savedPath model/saved_models/your_model.pth \
+    [--resume-from path/to/checkpoint.pth]  # Optional: resume from a checkpoint
 ```
+
+Required arguments:
+- `--savedPath`: Path where the model will be saved (must end in .pth)
+- `--dataFolder`: Directory containing training data (default: "data/train/")
+- `--num-epochs`: Number of training epochs (default: 5)
+
+Optional arguments:
+- `--resume-from`: Path to a checkpoint to resume training from
 
 ### Inference
 
-If you have an already trained/finetuned model and you just want to run the prediction,
-run it as such.
-
-Folder is the path to the audio files you want to test against.
-
-Example lists the model path as model/saved_models/your_model.pth but that is changeable 
-depending on where you saved it.
-
-The outputted file is predictions_timestamp.csv
-
 To run predictions on audio files:
 ```bash
-python predict.py --folder path/to/audio/files --model model/saved_models/your_model.pth
+python predict.py \
+    --folder path/to/audio/files \
+    --model model/saved_models/your_model.pth
 ```
+
+Required arguments:
+- `--folder`: Directory containing .mp3/.wav files to analyze
+- `--model`: Path to your trained model (.pth file)
+
+The script will:
+1. Process each audio file in the specified folder
+2. Generate predictions for AI-generated content and audio scene tags
+3. Save results to a CSV file named `predictions_YYYYMMDD_HHMM.csv`
 
 ## Project Structure
 

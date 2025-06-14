@@ -11,12 +11,14 @@ from torch.optim import Adam
 from torch.nn import BCEWithLogitsLoss
 import logging
 from tqdm.auto import tqdm
+import random
+import numpy as np 
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M")
 
 def train_model(data_folder: str, num_epochs: int, saved_path: str, resume_path: str = None) -> None:
-    dataset = AIAudioDataset(data_folder)
-    loader = DataLoader(dataset, batch_size=8, shuffle=True)
+    dataset = AIAudioDataset(data_folder, train=True)
+    loader = DataLoader(dataset, batch_size=16, shuffle=True)
 
     if resume_path:
         print(f"Resuming from Checkpoint: {resume_path}")
@@ -37,8 +39,9 @@ def train_model(data_folder: str, num_epochs: int, saved_path: str, resume_path:
 
     # only optimize trainable parameters
     optimizer = optim.Adam(
-        filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4
-    )
+        filter(lambda p: p.requires_grad, model.parameters()),
+        lr=1e-4,  weight_decay=1e-5) 
+
 
     train_loop(
         model=model,
