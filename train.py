@@ -14,11 +14,17 @@ from tqdm.auto import tqdm
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M")
 
-def train_model(data_folder: str, num_epochs: int, saved_path: str) -> None:
+def train_model(data_folder: str, num_epochs: int, saved_path: str, resume_path: str = None) -> None:
     dataset = AIAudioDataset(data_folder)
     loader = DataLoader(dataset, batch_size=8, shuffle=True)
 
-    model = DualHeadCnn14(pretrained=True)
+    if resume_path:
+        print(f"Resuming from Checkpoint: {resume_path}")
+        model = DualHeadCnn14(pretrained=False)
+        model.load_state_dict(torch.load(resume_path, map_location='cpu'))
+    else:
+        print("Starting Fresh with Pretrained Weights")
+        model = DualHeadCnn14(pretrained=True)
 
     # 500-2000 file range used for training. unfreezing things here.
     for name, param in model.named_parameters():
@@ -31,7 +37,7 @@ def train_model(data_folder: str, num_epochs: int, saved_path: str) -> None:
 
     # only optimize trainable parameters
     optimizer = optim.Adam(
-        filter(lambda p: p.requires_grad, model.parameters()), lr=1e-5
+        filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4
     )
 
     train_loop(
@@ -42,6 +48,11 @@ def train_model(data_folder: str, num_epochs: int, saved_path: str) -> None:
         optimizer=optimizer,
         loss_fn=loss_fn,
     )
+    
+def set_seed(seed: int = 42) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
 
 
 def train_loop(
@@ -84,6 +95,7 @@ def dir_path(string) -> str:
 
 
 if __name__ == "__main__":
+    set_seed(42)
     parser = argparse.ArgumentParser(
         prog="train.py", description="Python File to finetune audio files"
     )
@@ -98,14 +110,23 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--savedPath",
+        default=None,
         help="Needs to be a file path to a .pth file to save the model",
         required=True,
     )
+    parser.add_argument(
+        "--resume-from",
+        type=str,
+        default=None,
+        help="Path to a .pth model checkpoint to resuem from"
+    )
+    
     args = parser.parse_args()
 
     dataFolder = args.dataFolder
     num_epochs = args.num_epochs
     saved_path = args.savedPath
+    resume_path = args.resume_from
     base_name, extension = os.path.splitext(saved_path)
     new_saved_path = f"{base_name}_{timestamp}{extension}"
-    train_model(dataFolder, num_epochs, saved_path=new_saved_path)
+    train_model(dataFolder, num_epochs, new_saved_path, resume_path)
