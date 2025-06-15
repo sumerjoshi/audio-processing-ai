@@ -43,14 +43,14 @@ class DualHeadCnn14(Cnn14):
             binary_logit: shape(B,1)
             tag_logits: shape (B, 527)
         """
+        if x.ndim == 3:
+            x = x.squeeze(1)
+
         x = self.spectrogram_extractor(x)
+
         x = self.logmel_extractor(x)
 
-        # Transpose to (B, C=1, mel_bins, time) for CNN input
-        x = x.transpose(2, 3)  # -> (B, 1, mel_bins, time)
-
-        # CNN pipeline
-        x = self.bn0(x)  # BatchNorm2d(1)
+        x = x.transpose(2, 3)
 
         x = self.bn0(x)
         x = self.conv_block1(x)
@@ -65,7 +65,6 @@ class DualHeadCnn14(Cnn14):
         x = self.fc1(x)
         x = self.dropout(x)
 
-        # Dual heads
         tag_logits = self.fc_audioset(x)
         binary_logit = self.fc_binary(x)
         return binary_logit, tag_logits

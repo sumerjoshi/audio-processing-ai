@@ -4,30 +4,6 @@ This project uses deep learning to analyze audio files and detect AI-generated c
 
 ## Setup
 
-You can set up this project using either `uv` (recommended) or `pip`.
-
-### Option 1: Using uv (Recommended)
-
-1. Install `uv` if you haven't already:
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-2. Create and activate a virtual environment:
-```bash
-uv venv
-source .venv/bin/activate  # On Unix/macOS
-# or
-.venv\Scripts\activate  # On Windows
-```
-
-3. Install the package in development mode:
-```bash
-uv pip install -e .
-```
-
-### Option 2: Using pip
-
 1. Create and activate a virtual environment:
 ```bash
 python -m venv .venv
@@ -50,9 +26,10 @@ For the training step, I used this file from here [Link text][https://github.com
 For the example here, I set up a data folder at the top level with /data/train/ai and /data/train/real
 and would .mp3 and .wav files that I want to fintune against. I got the real data from
 FMA [Link Text][https://github.com/mdeff/fma] for testing, and the AI generated data from
-Facebook's Music Gen.
+Facebook's Music Gen. There needs to be the word "ai" in the path of the ai folders and "real" in the 
+path to the real songs.
 
-**NOTE: In /model/pretrained/cnn14.py, I'm hardcoding the path to be /mode/pretrained/pretrained_models/Cnn14_16k_mAP=0.438.pth.gz. This would have to be changed in the future. Cnn14 only takes in gzip files
+**NOTE: In /model/pretrained/cnn14.py, I'm hardcoding the path to be /model/pretrained/pretrained_models/Cnn14_16k_mAP=0.438.pth.gz. This would have to be changed in the future. Cnn14 only takes in gzip files
 so gzip your file beforehand**
 
 Steps:
@@ -114,45 +91,3 @@ The script will:
 - Training data should be organized in the `data/train/` directory
 - Model checkpoints are saved in `model/saved_models/`
 - The project is installed as a Python package for proper import handling
-
-## Code Quality
-
-This project uses Ruff for both linting and formatting Python code. Ruff is a fast Python linter and formatter written in Rust.
-
-### Using Ruff
-
-1. Install Ruff (it's already included in the dev dependencies):
-```bash
-# Using pip (recommended if you want to use your existing virtual environment)
-pip install -e ".[dev]"
-
-# OR using uv pip (if you want to use uv but keep your current virtual environment)
-uv pip install -e ".[dev]"
-
-# Note: Do NOT use 'uv venv' unless you want to create a new virtual environment
-# with pyenv. If you want to use uv while keeping your current environment,
-# use 'uv pip' instead.
-```
-
-2. Format your code:
-```bash
-ruff format .
-```
-
-3. Lint your code:
-```bash
-ruff check .
-```
-
-4. Fix linting issues automatically:
-```bash
-ruff check --fix .
-```
-
-The Ruff configuration is in `pyproject.toml`. Currently, it:
-- Uses a line length of 88 characters (same as Black)
-- Targets Python 3.9
-- Enables pycodestyle (`E`) and Pyflakes (`F`) rules by default
-- Ignores line length violations (`E501`)
-
-You can customize the Ruff configuration by modifying the `[tool.ruff]` section in `pyproject.toml`.

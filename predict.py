@@ -112,8 +112,6 @@ def predict_folder(folder_path: str, model_path: str, csv_path: str):
         ai_prob, tag_probs = predict_one(model, input_tensor)
 
         ai_label = "Yes" if ai_prob > 0.5 else "No"
-        print(len(tag_probs))          # Should be 527
-        print(len(AUDIOSCENE_TAGS))    # Must also be 527
         
         top5_idx = tag_probs.argsort()[-5:][::-1]
         top5_tags = [(AUDIOSCENE_TAGS[i], float(tag_probs[i])) for i in top5_idx]
