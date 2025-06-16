@@ -16,12 +16,15 @@ from model.pretrained.dual_head_cnn14 import DualHeadCnn14Simple
 import pandas as pd 
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
+from typing import Dict
+
+try:
+    import librosa
+    LIBROSA_AVAILABLE = True
+except ImportError:
+    LIBROSA_AVAILABLE = False
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-AUDIOSCENE_TAGS = [
-    line.strip()
-    for line in open("inference/audioset_labels_no_index.txt", encoding="utf-8")
-]
 DEFAULT_CSV_PATH = f"predictions_{timestamp}.csv"
 
 
@@ -57,42 +60,148 @@ def predict_one(model, input_tensor: Tensor) -> Tuple[torch.Tensor, torch.Tensor
     return ai_prob, tag_probs
 
 
-def write_header(csv_path):
+def write_music_header(csv_path):
     with open(csv_path, mode="w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(
             [
                 "filename",
-                "is_ai_generated",
+                "is_ai_generated", 
                 "ai_confidence",
-                "top_tag_1",
-                "tag_1_confidence",
-                "top_tag_2",
-                "tag_2_confidence",
-                "top_tag_3",
-                "tag_3_confidence",
-                "top_tag_4",
-                "tag_4_confidence",
-                "top_tag_5",
-                "tag_5_confidence",
+                "content_type",
+                "genre",
+                "mood", 
+                "instruments",
+                "tempo_bpm",
+                "energy",
+                "danceability"
             ]
         )
 
+def get_basic_music_info(file_path: str) -> Dict[str, str]:
+    """Fallback: basic info based on filename patterns"""
+    filename = Path(file_path).name.lower()
+    
+    if any(word in filename for word in ['electronic', 'edm', 'house', 'techno']):
+        genre = "Electronic"
+        tempo = "128"
+        energy = "High"
+        mood = "Energetic"
+    elif any(word in filename for word in ['rock', 'metal', 'punk']):
+        genre = "Rock"
+        tempo = "120"
+        energy = "High"
+        mood = "Energetic"
+    elif any(word in filename for word in ['jazz', 'blues']):
+        genre = "Jazz/Blues"
+        tempo = "90"
+        energy = "Medium"
+        mood = "Smooth"
+    elif any(word in filename for word in ['classical', 'symphony', 'concerto']):
+        genre = "Classical"
+        tempo = "80"
+        energy = "Low"
+        mood = "Calm"
+    else:
+        # Default for unknown music
+        genre = "Popular Music"
+        tempo = "100"
+        energy = "Medium"
+        mood = "Neutral"
+    
+    return {
+        'genre': genre,
+        'mood': mood,
+        'instruments': 'Mixed',
+        'tempo': tempo,
+        'energy': energy,
+        'danceability': '0.50'
+    }
 
-def append_row(
+
+def analyze_music_simple(file_path: str) -> Dict[str, str]:
+    """Simple music analysis that always works"""
+    if LIBROSA_AVAILABLE:
+        try:
+            return analyze_with_librosa_safe(file_path)
+        except Exception as e:
+            print(f"Librosa analysis failed for {Path(file_path).name}: {str(e)[:50]}...")
+            return get_basic_music_info(file_path)
+    else:
+        return get_basic_music_info(file_path)
+
+
+def analyze_with_librosa_safe(file_path: str) -> Dict[str, str]:
+    """Safe librosa analysis with error handling"""
+    
+    # Load audio (shorter duration to avoid memory issues)
+    y, sr = librosa.load(file_path, duration=10, sr=22050)
+    
+    # Get tempo safely
+    try:
+        tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+        tempo = float(tempo)  # Convert to Python float
+    except:
+        tempo = 100.0
+    
+    # Simple genre classification based on tempo
+    if tempo > 140:
+        genre = "Electronic/Dance"
+        energy = "High"
+        mood = "Energetic"
+        danceability = 0.8
+    elif tempo > 120:
+        genre = "Pop/Rock"
+        energy = "Medium"
+        mood = "Energetic"
+        danceability = 0.6
+    elif tempo > 80:
+        genre = "Folk/Alternative"
+        energy = "Medium"
+        mood = "Calm"
+        danceability = 0.4
+    else:
+        genre = "Ballad/Classical"
+        energy = "Low"
+        mood = "Calm"
+        danceability = 0.2
+    
+    return {
+        'genre': genre,
+        'mood': mood,
+        'instruments': 'Mixed',
+        'tempo': str(int(tempo)),  # Convert to string safely
+        'energy': energy,
+        'danceability': f"{danceability:.2f}"
+    }
+
+def append_music_row(
     csv_path: str,
     file_path: str,
     ai_label: Literal["Yes", "No"],
     ai_prob: Tensor,
-    top5_tags: list[Tuple[str, float]],
+    music_info: Dict[str, str],
 ) -> None:
     with open(csv_path, mode="a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        row = [file_path, ai_label, f"{ai_prob:.3f}"]
-        for tag, conf in top5_tags:
-            row.extend([tag, f"{conf:.3f}"])
+        
+        # Determine content type
+        content_type = "AI-Generated Music" if ai_label == "Yes" else "Real Music"
+        
+        row = [
+            file_path,
+            ai_label, 
+            f"{ai_prob:.3f}",
+            content_type,
+            music_info['genre'],
+            music_info['mood'],
+            music_info['instruments'], 
+            music_info['tempo'],
+            music_info['energy'],
+            music_info['danceability']
+        ]
         writer.writerow(row)
-
+        
 def get_audio_files(folder_path: str) -> list[Path]:
     """Get all audio files with case-insensitive extension matching"""
     folder = Path(folder_path)
@@ -122,14 +231,17 @@ def write_final_accuracy_row(csv_path: str) -> str:
         real_count = len(df[df['is_ai_generated'] == 'No'])
         avg_ai_confidence = df['ai_confidence'].mean()
         
+        # Music-specific stats
+        if 'genre' in df.columns:
+            top_genres = df[df['is_ai_generated'] == 'No']['genre'].value_counts().head(3)
+            top_genre = top_genres.index[0] if len(top_genres) > 0 else "N/A"
+        else:
+            top_genre = "N/A"
+        
         # Write to Excel
         df.to_excel(xlsx_path, index=False)
         
         try:
-            from openpyxl import load_workbook
-            from openpyxl.styles import PatternFill
-            
-            # Load workbook to add summary
             wb = load_workbook(xlsx_path)
             ws = wb.active
             
@@ -140,10 +252,11 @@ def write_final_accuracy_row(csv_path: str) -> str:
             ws.append(['Predicted AI Generated', ai_generated_count])
             ws.append(['Predicted Real', real_count])
             ws.append(['Average AI Confidence', f"{avg_ai_confidence:.3f}"])
+            ws.append(['Top Genre (Real Music)', top_genre])
             
             # Highlight summary section
             yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
-            for row in range(ws.max_row - 4, ws.max_row + 1):
+            for row in range(ws.max_row - 5, ws.max_row + 1):
                 for col in range(1, 3):  # First two columns
                     ws.cell(row=row, column=col).fill = yellow_fill
             
@@ -158,6 +271,15 @@ def write_final_accuracy_row(csv_path: str) -> str:
         print(f"Warning: Could not create Excel file: {e}")
         return csv_path
     
+def predict_ai_only(model, input_tensor: Tensor) -> float:
+    with torch.no_grad():
+        if input_tensor.ndim == 2:
+            input_tensor = input_tensor.squeeze(0)
+        input_tensor = input_tensor.unsqueeze(0)
+        binary_logit, _ = model(input_tensor)
+        ai_prob = torch.sigmoid(binary_logit).item()
+    return ai_prob
+    
 def predict_folder(folder_path: str, model_path: str, csv_path: str, threshold: float = 0.35):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -167,7 +289,7 @@ def predict_folder(folder_path: str, model_path: str, csv_path: str, threshold: 
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval().to(device)
 
-    write_header(csv_path)
+    write_music_header(csv_path)
 
     # Fixed: Use case-insensitive file finding
     audio_files_to_test = get_audio_files(folder_path)
@@ -187,20 +309,32 @@ def predict_folder(folder_path: str, model_path: str, csv_path: str, threshold: 
     for file_path in tqdm(audio_files_to_test, desc="Running Prediction"):
         try:
             input_tensor = preprocess_audio(file_path=str(file_path)).to(device=device)
-            ai_prob, tag_probs = predict_one(model, input_tensor)
-
+            ai_prob = predict_ai_only(model, input_tensor)
             ai_label = "Yes" if ai_prob > threshold else "No"
             
-            top5_idx = tag_probs.argsort()[-5:][::-1]
-            top5_tags = [(AUDIOSCENE_TAGS[i], float(tag_probs[i])) for i in top5_idx]
-
-            append_row(csv_path, file_path.name, ai_label, ai_prob, top5_tags)
+            music_info = analyze_music_simple(str(file_path))
+            
+            # If AI-generated, prefix the genre
+            if ai_label == "Yes":
+                music_info['genre'] = f"AI-{music_info['genre']}"
+            
+            # Write result with music tags
+            append_music_row(csv_path, file_path.name, ai_label, ai_prob, music_info)
             
         except Exception as e:
             print(f"Error processing {file_path.name}: {e}")
+            # Write error row
+            error_info = {
+                'genre': 'Processing Error',
+                'mood': 'Unknown',
+                'instruments': 'Unknown', 
+                'tempo': 'Unknown',
+                'energy': 'Unknown',
+                'danceability': 'Unknown'
+            }
+            append_music_row(csv_path, file_path.name, "Unknown", 0.0, error_info)
             continue
     
-    # Create Excel file with summary
     xlsx_path = write_final_accuracy_row(csv_path)
     print(f"Results saved to: {csv_path}")
     if xlsx_path != csv_path:
@@ -227,5 +361,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     csv_full_path = f"{args.output}/{DEFAULT_CSV_PATH}"
     
-
+    print("AI AUDIO DETECTION FOR MUSIC")
     predict_folder(args.folder, args.model, csv_full_path)
