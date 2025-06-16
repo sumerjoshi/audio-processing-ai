@@ -204,3 +204,6 @@ model/saved_models/*.pth*
 
 # No data in the data/train folder
 data/train/*
+
+# No data in data_split folder
+data_split/*

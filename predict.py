@@ -12,8 +12,10 @@ import torchaudio
 from torch import Tensor
 from torchaudio.transforms import MelSpectrogram
 from tqdm.auto import tqdm
-
-from model.pretrained.dual_head_cnn14 import DualHeadCnn14
+from model.pretrained.dual_head_cnn14 import DualHeadCnn14Simple
+import pandas as pd 
+from openpyxl import load_workbook
+from openpyxl.styles import PatternFill
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M")
 AUDIOSCENE_TAGS = [
@@ -39,7 +41,7 @@ def preprocess_audio(file_path, sample_rate=16000, duration=10.0) -> Tensor:
         pad = target_len - waveform_len
         waveform = F.pad(waveform, (0, pad))
     else:
-        start = np.random.randint(0, waveform_len - target_len + 1)
+        start = (waveform_len - target_len) // 2
         waveform = waveform[:, start : start + target_len]
 
     return waveform
@@ -91,39 +93,125 @@ def append_row(
             row.extend([tag, f"{conf:.3f}"])
         writer.writerow(row)
 
-
-def predict_folder(folder_path: str, model_path: str, csv_path: str):
+def get_audio_files(folder_path: str) -> list[Path]:
+    """Get all audio files with case-insensitive extension matching"""
+    folder = Path(folder_path)
+    audio_files = []
+    
+    # Supported audio extensions (case-insensitive)
+    supported_extensions = {'.wav', '.mp3', '.flac', '.m4a'}
+    
+    # Find all files and check extensions case-insensitively
+    for file_path in folder.rglob("*"):
+        if file_path.suffix.lower() in supported_extensions:
+            audio_files.append(file_path)
+    
+    return audio_files
+        
+def write_final_accuracy_row(csv_path: str) -> str:
+    """Write summary statistics to Excel file"""
+    base_name = csv_path.replace('.csv', '')
+    xlsx_path = f"{base_name}.xlsx"
+    
+    try:
+        df = pd.read_csv(csv_path)
+        
+        # Calculate summary statistics
+        total_files = len(df)
+        ai_generated_count = len(df[df['is_ai_generated'] == 'Yes'])
+        real_count = len(df[df['is_ai_generated'] == 'No'])
+        avg_ai_confidence = df['ai_confidence'].mean()
+        
+        # Write to Excel
+        df.to_excel(xlsx_path, index=False)
+        
+        try:
+            from openpyxl import load_workbook
+            from openpyxl.styles import PatternFill
+            
+            # Load workbook to add summary
+            wb = load_workbook(xlsx_path)
+            ws = wb.active
+            
+            # Add summary rows
+            ws.append([])  # Blank row
+            ws.append(['SUMMARY'])
+            ws.append(['Total Files', total_files])
+            ws.append(['Predicted AI Generated', ai_generated_count])
+            ws.append(['Predicted Real', real_count])
+            ws.append(['Average AI Confidence', f"{avg_ai_confidence:.3f}"])
+            
+            # Highlight summary section
+            yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+            for row in range(ws.max_row - 4, ws.max_row + 1):
+                for col in range(1, 3):  # First two columns
+                    ws.cell(row=row, column=col).fill = yellow_fill
+            
+            wb.save(xlsx_path)
+            
+        except ImportError:
+            print("Note: openpyxl not available for Excel formatting. Basic Excel file created.")
+            
+        return xlsx_path
+        
+    except Exception as e:
+        print(f"Warning: Could not create Excel file: {e}")
+        return csv_path
+    
+def predict_folder(folder_path: str, model_path: str, csv_path: str, threshold: float = 0.35):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = DualHeadCnn14(pretrained=False)
+    # Fixed: Use correct model class
+    model = DualHeadCnn14Simple(pretrained=False)
 
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval().to(device)
 
     write_header(csv_path)
 
-    audio_files_to_test = list(Path(folder_path).rglob("*.wav")) + list(
-        Path(folder_path).rglob("*.mp3")
-    )
+    # Fixed: Use case-insensitive file finding
+    audio_files_to_test = get_audio_files(folder_path)
+    
+    print(f"Found {len(audio_files_to_test)} audio files to process")
+    
+    # Show file types found
+    extensions = {}
+    for file_path in audio_files_to_test:
+        ext = file_path.suffix.lower()
+        extensions[ext] = extensions.get(ext, 0) + 1
+    
+    print("File types found:")
+    for ext, count in extensions.items():
+        print(f"  {ext}: {count} files")
 
     for file_path in tqdm(audio_files_to_test, desc="Running Prediction"):
-        file_path = str(file_path)
-        input_tensor = preprocess_audio(file_path=file_path).to(device=device)
-        ai_prob, tag_probs = predict_one(model, input_tensor)
+        try:
+            input_tensor = preprocess_audio(file_path=str(file_path)).to(device=device)
+            ai_prob, tag_probs = predict_one(model, input_tensor)
 
-        ai_label = "Yes" if ai_prob > 0.5 else "No"
+            ai_label = "Yes" if ai_prob > threshold else "No"
+            
+            top5_idx = tag_probs.argsort()[-5:][::-1]
+            top5_tags = [(AUDIOSCENE_TAGS[i], float(tag_probs[i])) for i in top5_idx]
+
+            append_row(csv_path, file_path.name, ai_label, ai_prob, top5_tags)
+            
+        except Exception as e:
+            print(f"Error processing {file_path.name}: {e}")
+            continue
+    
+    # Create Excel file with summary
+    xlsx_path = write_final_accuracy_row(csv_path)
+    print(f"Results saved to: {csv_path}")
+    if xlsx_path != csv_path:
+        print(f"Excel file created: {xlsx_path}")
         
-        top5_idx = tag_probs.argsort()[-5:][::-1]
-        top5_tags = [(AUDIOSCENE_TAGS[i], float(tag_probs[i])) for i in top5_idx]
-
-        append_row(csv_path, Path(file_path).name, ai_label, ai_prob, top5_tags)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--folder",
-        help="Folder containing .mp3/.wav files to predict against",
+        help="Folder containing .mp3/.wav/.flac/.m4a files to predict against",
         required=True,
     )
     parser.add_argument(
@@ -131,6 +219,13 @@ if __name__ == "__main__":
         help="Trained model in model/pretrained/saved_models/ or your own trained model",
         required=True,
     )
+    parser.add_argument(
+        "--output",
+        help="Output Directory of where to put CSV file",
+        required=True
+    )
     args = parser.parse_args()
+    csv_full_path = f"{args.output}/{DEFAULT_CSV_PATH}"
+    
 
-    predict_folder(args.folder, args.model, DEFAULT_CSV_PATH)
+    predict_folder(args.folder, args.model, csv_full_path)

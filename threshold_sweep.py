@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
-from model.pretrained.dual_head_cnn14 import DualHeadCnn14
+from model.pretrained.dual_head_cnn14 import DualHeadCnn14Simple
 from predict import preprocess_audio
 from pathlib import Path
 from tqdm import tqdm
@@ -85,8 +85,8 @@ def plot_logit_distributions(logits, labels):
 
 
 if __name__ == "__main__":
-    MODEL_PATH = f"/Users/sumerjoshi/upwork/audio-processing-ai/model/saved_models/Cnn14_16k_mAP_around2000_samplingAndAug_audioChanges_20250615_0038.pth" 
-    model = DualHeadCnn14(pretrained=False)
+    MODEL_PATH = f"/Users/sumerjoshi/upwork/audio-processing-ai/model/saved_models/Cnn14_16k_mAP_around2000_samplingAndRealTransformChanges_20250615_0746.pth" 
+    model = DualHeadCnn14Simple(pretrained=False)
     model.load_state_dict(torch.load(MODEL_PATH, map_location="cpu"))
     model.eval()
     
