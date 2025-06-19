@@ -1,6 +1,6 @@
-# Audio Processing AI
+# Audio Processing AI Project
 
-This project uses deep learning to analyze audio files and detect AI-generated content.
+This project uses deep learning to analyze audio files and detect AI-generated content. The goal of this project is to listen to an .mp3 or a .wav file and determine if it's AI generated or not
 
 ## Setup
 
