@@ -1,8 +1,37 @@
 # Audio Processing AI Project
 
-This project uses deep learning to analyze audio files and detect AI-generated content. The goal of this project is to listen to an .mp3 or a .wav file and determine if it's AI generated or not
+[![CI](https://github.com/yourusername/audio-processing-ai/workflows/CI/badge.svg)](https://github.com/yourusername/audio-processing-ai/actions)
+[![PyPI version](https://badge.fury.io/py/audio-processing-ai.svg)](https://badge.fury.io/py/audio-processing-ai)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Setup
+This project uses deep learning to analyze audio files and detect AI-generated content. The goal of this project is to listen to an .mp3 or a .wav file and determine if it's AI generated or not.
+
+## Installation
+
+### Using uv (Recommended)
+
+1. Install uv if you haven't already:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# or
+pip install uv
+```
+
+2. Create and activate a virtual environment with uv:
+```bash
+uv venv
+source .venv/bin/activate  # On Unix/macOS
+# or
+.venv\Scripts\activate  # On Windows
+```
+
+3. Install the package in development mode:
+```bash
+uv pip install -e .
+```
+
+### Using pip (Alternative)
 
 1. Create and activate a virtual environment:
 ```bash
@@ -15,6 +44,34 @@ source .venv/bin/activate  # On Unix/macOS
 2. Install the package in development mode:
 ```bash
 pip install -e .
+```
+
+This will install the `audio-processing-ai` package and all its dependencies.
+
+## Development
+
+For development setup, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+### Quick Development Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/audio-processing-ai.git
+cd audio-processing-ai
+
+# Switch to main branch (if not already there)
+git checkout main-copy
+
+# Create virtual environment and install dev dependencies
+uv venv
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+
+# Install pre-commit hooks
+pre-commit install
+
+# Run tests
+pytest tests/ -v
 ```
 
 ## Usage
@@ -75,13 +132,27 @@ The script will:
 
 ## Project Structure
 
-- `inference/`: Inference scripts for prediction
-- `model/`: Model architecture and pretrained weights
-- `dataset/`: Dataset loading and processing utilities
-- `data/`: Training and test data
-- `setup.py`: Package installation configuration
-- `requirements.txt`: Project dependencies (for reference)
-- `.cursor.json`: Cursor IDE configuration (optional)
+```
+audio-processing-ai/
+├── .github/
+│   └── workflows/                    # GitHub Actions CI/CD workflows
+├── src/
+│   └── audio_processing_ai/          # Main package
+│       ├── dataset/                  # Dataset loading and processing utilities
+│       ├── model/                    # Model architecture and pretrained weights
+│       ├── inference/                # Inference scripts and label files
+│       └── scripts/                  # Utility scripts (including threshold_sweep.py)
+├── tests/                            # Test files
+├── train.py                          # Training script
+├── predict.py                        # Prediction script
+├── pyproject.toml                    # Package configuration
+├── uv.lock                           # uv lock file (if using uv)
+├── .pre-commit-config.yaml           # Pre-commit hooks configuration
+├── .gitignore                        # Git ignore rules
+├── CONTRIBUTING.md                   # Contributing guidelines
+├── CHANGELOG.md                      # Changelog
+└── README.md                         # This file
+```
 
 ## Notes
 
@@ -90,4 +161,10 @@ The script will:
 - Model architecture is based on CNN14 with dual-head classification
 - Training data should be organized in the `data/train/` directory
 - Model checkpoints are saved in `model/saved_models/`
-- The project is installed as a Python package for proper import handling
+- The project is structured as a proper Python package following modern packaging standards
+- All modules are organized under `src/audio_processing_ai/` for better code organization
+- Uses `uv` for fast dependency management (recommended) or `pip` as an alternative
+- Python 3.9+ is required for compatibility with all dependencies
+- Includes comprehensive CI/CD with GitHub Actions for testing, linting, and deployment
+- Pre-commit hooks ensure code quality and consistency
+- Automated dependency updates and PyPI publishing workflows

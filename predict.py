@@ -12,7 +12,7 @@ import torchaudio
 from torch import Tensor
 from torchaudio.transforms import MelSpectrogram
 from tqdm.auto import tqdm
-from model.pretrained.dual_head_cnn14 import DualHeadCnn14Simple
+from audio_processing_ai.model.pretrained.dual_head_cnn14 import DualHeadCnn14Simple
 import pandas as pd 
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill

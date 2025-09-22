@@ -1,7 +1,11 @@
 import torch
 import numpy as np
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
-from model.pretrained.dual_head_cnn14 import DualHeadCnn14Simple
+from audio_processing_ai.model.pretrained.dual_head_cnn14 import DualHeadCnn14Simple
+import sys
+import os
+# Add the project root to the path to import from predict.py
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
 from predict import preprocess_audio
 from pathlib import Path
 from tqdm import tqdm

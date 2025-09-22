@@ -1,8 +1,8 @@
 import argparse
 import os
 from datetime import datetime
-from dataset.ai_audio_dataset import AIAudioDataset
-from model.pretrained.dual_head_cnn14 import DualHeadCnn14Simple
+from audio_processing_ai.dataset.ai_audio_dataset import AIAudioDataset
+from audio_processing_ai.model.pretrained.dual_head_cnn14 import DualHeadCnn14Simple
 from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
