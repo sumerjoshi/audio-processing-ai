@@ -38,21 +38,21 @@ jobs:
     - name: Lint with flake8
       run: |
         # Stop the build if there are Python syntax errors or undefined names
-        flake8 dataset/ model/ inference/ scripts/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        uv run flake8 dataset/ model/ inference/ scripts/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
         # Exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 dataset/ model/ inference/ scripts/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+        uv run flake8 dataset/ model/ inference/ scripts/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
     
     - name: Type check with mypy
-      run: mypy dataset/ model/ inference/ scripts/ --ignore-missing-imports --no-error-summary
+      run: uv run mypy dataset/ model/ inference/ scripts/ --ignore-missing-imports --no-error-summary
     
     - name: Format check with black
-      run: black --check dataset/ model/ inference/ scripts/ tests/
+      run: uv run black --check dataset/ model/ inference/ scripts/ tests/
     
     - name: Import sort check with isort
-      run: isort --check-only dataset/ model/ inference/ scripts/ tests/
+      run: uv run isort --check-only dataset/ model/ inference/ scripts/ tests/
     
     - name: Test with pytest
-      run: pytest tests/ -v --cov=dataset --cov=model --cov=inference --cov-report=xml
+      run: uv run pytest tests/ -v --cov=dataset --cov=model --cov=inference --cov-report=xml
     
     - name: Upload coverage to Codecov
       if: matrix.python-version == '3.9'
@@ -116,10 +116,10 @@ jobs:
       run: uv pip install -e .
     
     - name: Test train.py help
-      run: python train.py --help
+      run: uv run python train.py --help
     
     - name: Test predict.py help
-      run: python predict.py --help
+      run: uv run python predict.py --help
     
     - name: Test threshold_sweep.py import
-      run: python -c "import sys; sys.path.append('scripts'); import threshold_sweep; print('threshold_sweep imports successfully')"
+      run: uv run python -c "import sys; sys.path.append('scripts'); import threshold_sweep; print('threshold_sweep imports successfully')"
