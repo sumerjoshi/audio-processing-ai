@@ -43,7 +43,7 @@ jobs:
         flake8 src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
     
     - name: Type check with mypy
-      run: mypy src/audio_processing_ai/ --ignore-missing-imports
+      run: mypy src/audio_processing_ai/ --ignore-missing-imports --no-error-summary
     
     - name: Format check with black
       run: black --check src/ tests/
