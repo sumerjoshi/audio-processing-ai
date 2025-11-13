@@ -197,7 +197,7 @@ cython_debug/
 *.zip
 
 # Prevent any .pth files being added to pretraining
-model/pretrained/pretrained_models/*
+model/pretrained/pretrained_models/*.pth
 
 # Prevent any .pth files being added as a saved model.
 model/saved_models/*.pth*
