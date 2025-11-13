@@ -76,7 +76,7 @@ class AIAudioDataset(torch.utils.data.Dataset):
         try:
             waveform, sr = torchaudio.load(afile_path)
         except Exception as e:
-            print(f"❌ Error loading {afile_path}: {e}")
+            print(f"Error loading {afile_path}: {e}")
             # Return a dummy waveform if file fails to load
             waveform = torch.zeros(1, self.target_len)
             sr = self.sample_rate

@@ -33,6 +33,8 @@ timestamp = datetime.now().strftime("%Y%m%d_%H%M")
 
 def train_model(data_folder: str, num_epochs: int, saved_path: str, resume_path: str = None) -> None:
     dataset = AIAudioDataset(root_dir=data_folder, real_transform=real_transform, ai_transform=ai_transform, train=True)
+    
+    #mps changes here
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     sampler = compute_sampler(dataset)
@@ -61,23 +63,6 @@ def train_model(data_folder: str, num_epochs: int, saved_path: str, resume_path:
             param.requires_grad = True
         else:
             param.requires_grad = False
-    
-    """
-    trainable_params = []
-    binary_head_params = []
-
-    for name, param in model.named_parameters():
-        if param.requires_grad:
-            if 'fc_binary' in name:
-                binary_head_params.append(param)
-            else:
-                trainable_params.append(param)
-
-    optimizer = optim.Adam([
-        {'params': trainable_params, 'lr': 5e-5},      # Lower for backbone
-        {'params': binary_head_params, 'lr': 2e-4}     # Higher for head
-    ], weight_decay=1e-4)
-    """
 
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight]).to(device))
         
