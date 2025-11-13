@@ -38,21 +38,21 @@ jobs:
     - name: Lint with flake8
       run: |
         # Stop the build if there are Python syntax errors or undefined names
-        uv run flake8 dataset/ model/ inference/ scripts/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        uv run python -m flake8 src/audio_processing_ai/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
         # Exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        uv run flake8 dataset/ model/ inference/ scripts/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+        uv run python -m flake8 src/audio_processing_ai/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
     
     - name: Type check with mypy
-      run: uv run mypy dataset/ model/ inference/ scripts/ --ignore-missing-imports --no-error-summary
+      run: uv run python -m mypy src/audio_processing_ai/ --ignore-missing-imports --no-error-summary
     
     - name: Format check with black
-      run: uv run black --check dataset/ model/ inference/ scripts/ tests/
+      run: uv run python -m black --check src/audio_processing_ai/ tests/
     
     - name: Import sort check with isort
-      run: uv run isort --check-only dataset/ model/ inference/ scripts/ tests/
+      run: uv run python -m isort --check-only src/audio_processing_ai/ tests/
     
     - name: Test with pytest
-      run: uv run pytest tests/ -v --cov=dataset --cov=model --cov=inference --cov-report=xml
+      run: uv run python -m pytest tests/ -v --cov=src/audio_processing_ai --cov-report=xml
     
     - name: Upload coverage to Codecov
       if: matrix.python-version == '3.9'
@@ -122,4 +122,4 @@ jobs:
       run: uv run python predict.py --help
     
     - name: Test threshold_sweep.py import
-      run: uv run python -c "import sys; sys.path.append('scripts'); import threshold_sweep; print('threshold_sweep imports successfully')"
+      run: uv run python -c "import sys; sys.path.append('src/audio_processing_ai/scripts'); import threshold_sweep; print('threshold_sweep imports successfully')"
