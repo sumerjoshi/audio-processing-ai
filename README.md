@@ -80,8 +80,8 @@ pytest tests/ -v
 
 For the training step, I used this file from here [Link text][https://github.com/qiuqiangkong/audioset_tagging_cnn/blob/master/README.md] that is a 16khz model for inference to finetune against.
 
-For the example here, I set up a data folder at the top level with /data/train/ai and /data/train/real
-and would .mp3 and .wav files that I want to fintune against. I got the real data from
+For the example here, I set up a data folder at the top level with `/data/train/ai` and `/data/train/real`
+and would .mp3 and .wav files that I want to finetune against. I got the real data from
 FMA [Link Text][https://github.com/mdeff/fma] for testing, and the AI generated data from
 Facebook's Music Gen. There needs to be the word "ai" in the path of the ai folders and "real" in the 
 path to the real songs.
@@ -90,8 +90,8 @@ path to the real songs.
 so gzip your file beforehand**
 
 Steps:
-1. First place files in audio-processing-ai/data/train (if you are going to finetune data against your model) 
-    **All AI Files should go in the /data/train/ai and all of the real files goes in /data/train/real. This is because we need to do supervised learning befor training the classfier which file is AI music and which is Real**
+1. First place files in `data/train/` (if you are going to finetune data against your model) 
+    **All AI Files should go in `/data/train/ai` and all of the real files goes in `/data/train/real`. This is because we need to do supervised learning before training the classifier which file is AI music and which is Real**
 2. Figure out the model you are going to finetune against
 3. Update this line (PRETRAINED_MODEL_PATH = 'model/pretrained/pretrained_models/Cnn14_16k_mAP=0.438.pth.gz') at cnn14.py to the .pth.gz file location of your choice
 
@@ -114,21 +114,68 @@ Optional arguments:
 
 ### Inference
 
-To run predictions on audio files:
+Place your audio files in the `data/predict/` folder, then run predictions:
+
 ```bash
 python predict.py \
-    --folder path/to/audio/files \
-    --model model/saved_models/your_model.pth
+    --folder data/predict \
+    --model model/saved_models/your_model.pth \
+    --output results
+```
+
+Or specify any folder containing audio files:
+
+```bash
+python predict.py \
+    --folder path/to/your/audio/files \
+    --model model/saved_models/your_model.pth \
+    --output results
 ```
 
 Required arguments:
-- `--folder`: Directory containing .mp3/.wav files to analyze
+- `--folder`: Directory containing .mp3/.wav/.flac/.m4a files to analyze
 - `--model`: Path to your trained model (.pth file)
+- `--output`: Output directory for CSV and Excel results
 
 The script will:
 1. Process each audio file in the specified folder
 2. Generate predictions for AI-generated content and audio scene tags
-3. Save results to a CSV file named `predictions_YYYYMMDD_HHMM.csv`
+3. Save results to a CSV file named `predictions_YYYYMMDD_HHMM.csv` and an Excel file with summary statistics
+
+### Evaluation
+
+To evaluate your trained model on a test set, use the `evaluation_pipeline.py` script. This will generate comprehensive metrics including ROC curves, confusion matrices, and threshold analysis.
+
+**Prerequisites:**
+- Your data should be split into train/val/test folders
+- Test folder should contain `real/` and `ai/` subfolders with audio files
+
+Example evaluation:
+```bash
+python evaluation_pipeline.py \
+    --model model/saved_models/your_model.pth \
+    --data-split data/split/ \
+    --output-dir evaluation_results
+```
+
+The evaluation will generate:
+- `evaluation_plots.png`: ROC curve, logit distributions, threshold analysis, and confusion matrix
+- `evaluation_thresholds.csv`: Performance metrics across different thresholds
+- `evaluation_report.txt`: Detailed text report with all metrics
+
+**Example Output:**
+See `sample_runs/eval_sample_run/` for an example of evaluation results. This directory contains:
+- `evaluation_plots.png`: Visual performance metrics
+- `evaluation_report.txt`: Detailed evaluation report
+- `evaluation_thresholds.csv`: Threshold analysis data
+
+Required arguments:
+- `--model`: Path to trained model (.pth file)
+- `--data-split`: Path to split data folder (containing train/val/test subdirs)
+
+Optional arguments:
+- `--output-dir`: Output directory for results (default: auto-generated with timestamp)
+- `--seed`: Random seed for reproducibility (default: 42)
 
 ## Project Structure
 
@@ -136,6 +183,17 @@ The script will:
 audio-processing-ai/
 ├── .github/
 │   └── workflows/                    # GitHub Actions CI/CD workflows
+├── data/
+│   ├── train/                       # Training data
+│   │   ├── ai/                      # AI-generated audio files
+│   │   └── real/                    # Real audio files
+│   └── predict/                     # User audio files for prediction
+├── model/
+│   ├── pretrained/                  # Pretrained model weights
+│   │   └── pretrained_models/
+│   └── saved_models/                # Trained model checkpoints
+├── sample_runs/                     # Example evaluation outputs
+│   └── eval_sample_run/             # Sample evaluation results
 ├── src/
 │   └── audio_processing_ai/          # Main package
 │       ├── dataset/                  # Dataset loading and processing utilities
@@ -145,6 +203,7 @@ audio-processing-ai/
 ├── tests/                            # Test files
 ├── train.py                          # Training script
 ├── predict.py                        # Prediction script
+├── evaluation_pipeline.py            # Model evaluation script
 ├── pyproject.toml                    # Package configuration
 ├── uv.lock                           # uv lock file (if using uv)
 ├── .pre-commit-config.yaml           # Pre-commit hooks configuration
@@ -160,7 +219,9 @@ audio-processing-ai/
 - Audio processing is done using torchaudio and librosa
 - Model architecture is based on CNN14 with dual-head classification
 - Training data should be organized in the `data/train/` directory
+- Prediction files can be placed in `data/predict/` for convenience
 - Model checkpoints are saved in `model/saved_models/`
+- Evaluation results are saved with timestamps for easy tracking
 - The project is structured as a proper Python package following modern packaging standards
 - All modules are organized under `src/audio_processing_ai/` for better code organization
 - Uses `uv` for fast dependency management (recommended) or `pip` as an alternative
