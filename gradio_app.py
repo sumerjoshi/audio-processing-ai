@@ -716,7 +716,7 @@ if MODAL_AVAILABLE:
         modal.Image.debian_slim(python_version="3.11")
         .apt_install("ffmpeg", "libsndfile1")
         .pip_install(
-            "gradio>=4.44.1,<5.0.0",  # Latest Gradio 4.x for Python 3.11
+            "gradio>=4.44.1,<5.0.0",  # Latest Gradio 4.x (4.44.1) for Python 3.11 - compatible with huggingface_hub<0.23.0
             "huggingface_hub>=0.20.0,<0.23.0",  # Compatible with Gradio 4.44.1 (HfFolder was removed in 0.23.0+)
             "torch>=2.0.0",
             "torchaudio>=2.0.0",
