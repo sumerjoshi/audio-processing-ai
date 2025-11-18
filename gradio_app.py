@@ -177,28 +177,35 @@ class GradioAudioInterface:
                 return f"Error: Path is not a regular file: {audio_file}. Got type: {type(audio_path)}", None, empty_df
             
             # Preprocess audio file
+            print(f"Processing audio file: {audio_file}")
             input_data = preprocess_audio(str(audio_file))
+            print("Audio preprocessing complete")
             
             if self.onnx:
                 # ONNX inference
+                print("Starting ONNX inference...")
                 # input_data shape: [1, audio_length] -> squeeze to [audio_length] -> reshape to [1, audio_length]
                 input_tensor = input_data.squeeze(0).numpy().reshape(1, -1).astype(np.float32)
                 
                 # Verify input shape matches ONNX model expectations
                 if self.onnx_session is None:
-                    return "Error: ONNX session not initialized", None
+                    print("Error: ONNX session is None")
+                    return "Error: ONNX session not initialized", None, empty_df
                 
+                print("Running session.run()...")
                 outputs = self.onnx_session.run(
                     ['binary_logit', 'tag_logits'],
                     {'audio': input_tensor}
                 )
+                print("Inference complete")
                 binary_logit, _ = outputs
                 # Convert numpy scalar to Python float for consistency
                 ai_prob = float(1 / (1 + np.exp(-binary_logit[0, 0])))
             else:
                 # PyTorch inference
+                print("Starting PyTorch inference...")
                 if self.model is None:
-                    return "Error: PyTorch model not initialized", None
+                    return "Error: PyTorch model not initialized", None, empty_df
                 
                 input_tensor = input_data.to(device)
                 ai_prob = predict_ai_only(self.model, input_tensor)
@@ -206,6 +213,7 @@ class GradioAudioInterface:
                 if isinstance(ai_prob, torch.Tensor):
                     ai_prob = ai_prob.item()
                 ai_prob = float(ai_prob)
+                print("Inference complete")
             
             is_ai = ai_prob > self.threshold
             result = f"**AI-Generated: {'Yes' if is_ai else 'No'}**\n"
@@ -478,6 +486,26 @@ class GradioAudioInterface:
                 raise ImportError(f"Gradio is not available. Install with: pip install gradio. Error: {e}")
         else:
             gradio_module = gr
+            
+        # Monkey-patch Gradio's hash_file to prevent IsADirectoryError on Modal
+        # This fixes the issue where Gradio tries to hash the root directory '/'
+        try:
+            from gradio import processing_utils
+            if not hasattr(processing_utils, '_original_hash_file'):
+                processing_utils._original_hash_file = processing_utils.hash_file
+                
+                def patched_hash_file(path, *args, **kwargs):
+                    if str(path) == "/" or str(path) == "/favicon.ico":
+                        return "root_bypass_hash"
+                    try:
+                        return processing_utils._original_hash_file(path, *args, **kwargs)
+                    except (IsADirectoryError, PermissionError):
+                        return "directory_bypass_hash"
+                
+                processing_utils.hash_file = patched_hash_file
+                print("Applied fix for Gradio IsADirectoryError")
+        except Exception as e:
+            print(f"Could not patch Gradio: {e}")
         
         # Configure Gradio cache directory for Modal
         if self.is_modal:
@@ -590,7 +618,8 @@ class GradioAudioInterface:
                         folder_input = gradio_module.File(
                             label="Upload ZIP File",
                             file_count="single",
-                            file_types=[".zip"]
+                            file_types=[".zip"],
+                            value=None  # Explicitly set to None
                         )
                         batch_predict_btn = gradio_module.Button("Process ZIP File", variant="primary", size="lg")
                     
@@ -614,7 +643,9 @@ class GradioAudioInterface:
                     
                     with gradio_module.Row():
                         result_file_download = gradio_module.File(
-                            label="Download Full Results (CSV/Excel)"
+                            label="Download Full Results (CSV/Excel)",
+                            value=None,  # Explicitly set to None
+                            interactive=False  # Output only
                         )
                     
                     batch_predict_btn.click(
@@ -644,10 +675,12 @@ class GradioAudioInterface:
         if not hasattr(demo, '__call__'):
             raise RuntimeError("Gradio Blocks object is not properly initialized as an ASGI app")
         
-        # Set max_file_size attribute if it doesn't exist (for file uploads)
+        # Set max_file_size attribute manually since it's not a constructor arg but required by upload route
+        # Use a large value (e.g., 1GB) or check if None works (often means unlimited)
+        # The error "AttributeError: 'Blocks' object has no attribute 'max_file_size'" confirms this is needed
         if not hasattr(demo, 'max_file_size'):
-            demo.max_file_size = 100  # 100MB default
-        
+            demo.max_file_size = 1024 * 1024 * 1024  # 1 GB limit
+    
         # Set root_path to empty string for Modal to prevent '/' path issues
         # This prevents Gradio from trying to process '/' as a file path on page load
         if hasattr(demo, 'root_path'):
@@ -756,7 +789,8 @@ if MODAL_AVAILABLE:
     @app.function(
         image=image,
         volumes={"/models": model_volume},
-        timeout=300,
+        timeout=600,  # Increased timeout to 10 minutes
+        container_idle_timeout=300, # Keep container alive for 5 minutes
     )
     @modal.concurrent(max_inputs=100)
     @modal.asgi_app()
@@ -804,12 +838,13 @@ if MODAL_AVAILABLE:
         except Exception:
             pass  # If setting fails, continue anyway - not critical
         
-        # Return the Blocks object directly - it's the ASGI app
-        # Don't return demo.app as it breaks internal Gradio functionality (like max_file_size)
-        if not callable(demo):
-            raise RuntimeError(f"Gradio Blocks object is not callable: {type(demo)}")
-        
-        return demo
+        # Return the underlying FastAPI app which is ASGI compatible
+        if hasattr(demo, "app"):
+            return demo.app
+        elif callable(demo):
+            return demo
+        else:
+            raise RuntimeError(f"Expected an ASGI app, but got {type(demo)}")
         
 
 if __name__ == "__main__":

@@ -150,16 +150,16 @@ def main():
     if not args.skip_upload:
         upload_success = upload_to_modal(onnx_path, args.volume)
         if upload_success:
-            print("\n✅ Setup complete! You can now deploy to Modal with:")
+            print("\nSetup complete! You can now deploy to Modal with:")
             print("   modal deploy gradio_app.py")
         else:
-            print("\n✅ ONNX conversion complete!")
-            print("   ⚠️  Upload to Modal failed. Please authenticate and upload manually:")
+            print("\nONNX conversion complete!")
+            print("   Upload to Modal failed. Please authenticate and upload manually:")
             print(f"      modal volume put {args.volume} {onnx_path} model.onnx")
             print("   Then deploy with:")
             print("      modal deploy gradio_app.py")
     else:
-        print("\n✅ ONNX conversion complete!")
+        print("\nONNX conversion complete!")
         print(f"   Upload manually with: modal volume put {args.volume} {onnx_path} model.onnx")
 
 if __name__ == "__main__":
