@@ -300,3 +300,5 @@ predictions_*.xlsx
 # Model outputs and checkpoints (excluding the specific patterns you want to keep)
 *.pth
 *.pth.gz
+
+EVALUATION_EXPLANATION.md
