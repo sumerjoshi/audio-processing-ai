@@ -32,7 +32,7 @@ class ModelEvaluator:
             raise FileNotFoundError(f"Model file not found: {model_path}")
         
         model = DualHeadCnn14Simple(pretrained=False)
-        model.load_state_dict(torch.load(model_path, map_location=self.device))
+        model.load_state_dict(torch.load(model_path, map_location=self.device, weights_only=False))
         model.eval()
         model.to(self.device)
         

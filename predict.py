@@ -10,7 +10,6 @@ import torch
 import torch.nn.functional as F
 import torchaudio
 from torch import Tensor
-from torchaudio.transforms import MelSpectrogram
 from tqdm.auto import tqdm
 from audio_processing_ai.model.pretrained.dual_head_cnn14 import DualHeadCnn14Simple
 import pandas as pd 
@@ -29,6 +28,13 @@ DEFAULT_CSV_PATH = f"predictions_{timestamp}.csv"
 
 
 def preprocess_audio(file_path, sample_rate=16000, duration=10.0) -> Tensor:
+    # Validate file path is actually a file, not a directory
+    file_path_obj = Path(file_path)
+    if file_path_obj.is_dir():
+        raise ValueError(f"Expected a file but got a directory: {file_path}")
+    if not file_path_obj.is_file():
+        raise ValueError(f"Path is not a regular file: {file_path}")
+    
     waveform, sr = torchaudio.load(file_path)
 
     if sr != sample_rate:
@@ -212,6 +218,15 @@ def get_audio_files(folder_path: str) -> list[Path]:
     
     # Find all files and check extensions case-insensitively
     for file_path in folder.rglob("*"):
+        # Skip macOS metadata files and directories
+        if file_path.name.startswith('._') or '__MACOSX' in str(file_path):
+            continue
+        
+        # Skip if not a regular file (e.g., pipes, directories, etc.)
+        if not file_path.is_file():
+            continue
+        
+        # Check if it's a supported audio extension
         if file_path.suffix.lower() in supported_extensions:
             audio_files.append(file_path)
     
@@ -286,7 +301,7 @@ def predict_folder(folder_path: str, model_path: str, csv_path: str, threshold: 
     # Fixed: Use correct model class
     model = DualHeadCnn14Simple(pretrained=False)
 
-    model.load_state_dict(torch.load(model_path, map_location=device))
+    model.load_state_dict(torch.load(model_path, map_location=device, weights_only=False))
     model.eval().to(device)
 
     write_music_header(csv_path)

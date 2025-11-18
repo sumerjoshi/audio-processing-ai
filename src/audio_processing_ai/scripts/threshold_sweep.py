@@ -91,7 +91,7 @@ def plot_logit_distributions(logits, labels):
 if __name__ == "__main__":
     MODEL_PATH = f"/Users/sumerjoshi/upwork/audio-processing-ai/model/saved_models/Cnn14_16k_mAP_around2000_samplingAndRealTransformChanges_20250615_0746.pth" 
     model = DualHeadCnn14Simple(pretrained=False)
-    model.load_state_dict(torch.load(MODEL_PATH, map_location="cpu"))
+    model.load_state_dict(torch.load(MODEL_PATH, map_location="cpu", weights_only=False))
     model.eval()
     
     AI_FOLDER = f"{os.getcwd()}/data/train/ai"

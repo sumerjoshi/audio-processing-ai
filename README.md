@@ -177,6 +177,84 @@ Optional arguments:
 - `--output-dir`: Output directory for results (default: auto-generated with timestamp)
 - `--seed`: Random seed for reproducibility (default: 42)
 
+### Gradio Web Interface
+
+The project includes a Gradio web interface for interactive AI audio detection. You can run it locally or deploy it to Modal.
+
+#### Running Locally
+
+To run the Gradio app locally with a PyTorch model:
+
+```bash
+python gradio_app.py \
+    --model model/saved_models/your_model.pth \
+    [--threshold 0.35] \
+    [--onnx]
+```
+
+To run with an ONNX model:
+
+```bash
+python gradio_app.py \
+    --model model/saved_models/your_model.onnx \
+    --onnx \
+    [--threshold 0.35]
+```
+
+Required arguments:
+- `--model`: Path to your trained model (.pth for PyTorch or .onnx for ONNX)
+
+Optional arguments:
+- `--threshold`: Threshold for AI detection (default: 0.35)
+- `--onnx`: Use ONNX model instead of PyTorch (required if model is .onnx)
+
+The app will launch at `http://127.0.0.1:7860` by default.
+
+**Features:**
+- **Single File Upload**: Upload one audio file (.mp3, .wav, .flac, .m4a) for instant prediction
+- **Batch Processing**: Upload a ZIP file containing multiple audio files
+- Results include AI detection confidence and music analysis (genre, mood, tempo, energy)
+- Batch processing shows interactive tables, charts, and summary statistics
+- Download full results as CSV/Excel for further analysis
+
+#### Deploying to Modal
+
+The Gradio app can be deployed to Modal for cloud hosting. The deployed app uses ONNX models for optimized inference.
+
+**Prerequisites:**
+1. Install Modal CLI:
+```bash
+pip install modal
+```
+
+2. Authenticate with Modal:
+```bash
+modal token new
+```
+
+3. Convert your PyTorch model to ONNX (if not already done):
+```bash
+python scripts/setup_modal.py \
+    --pth-path model/saved_models/your_model.pth \
+    --onnx-path model/saved_models/your_model.onnx
+```
+
+4. Upload the ONNX model to Modal volume:
+```bash
+modal volume put ai-audio-models model/saved_models/your_model.onnx model.onnx
+```
+
+**Deploy to Modal:**
+```bash
+modal deploy gradio_app.py
+```
+
+**Access the deployed app:**
+Once deployed, your app will be available at:
+- **URL**: https://sumerjoshi--ai-audio-detection-gradio-app-modal.modal.run/
+
+**Note:** The Modal deployment uses ONNX models for better performance and compatibility. Make sure you've uploaded your ONNX model to the `ai-audio-models` volume before deploying.
+
 ## Project Structure
 
 ```
@@ -204,6 +282,7 @@ audio-processing-ai/
 ├── train.py                          # Training script
 ├── predict.py                        # Prediction script
 ├── evaluation_pipeline.py            # Model evaluation script
+├── gradio_app.py                     # Gradio web interface (local and Modal deployment)
 ├── pyproject.toml                    # Package configuration
 ├── uv.lock                           # uv lock file (if using uv)
 ├── .pre-commit-config.yaml           # Pre-commit hooks configuration

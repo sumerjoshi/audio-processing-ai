@@ -93,7 +93,7 @@ class ConvBlock(nn.Module):
 def load_compressed_model(model_path):
     """Load a gzipped model file."""
     with gzip.open(model_path, "rb") as f:
-        return torch.load(f)
+        return torch.load(f, weights_only=False)
 
 
 class Cnn14(nn.Module):

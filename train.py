@@ -52,7 +52,7 @@ def train_model(data_folder: str, num_epochs: int, saved_path: str, resume_path:
     if resume_path:
         logging.info(f"Resuming from Checkpoint: {resume_path}")
         model = DualHeadCnn14Simple(pretrained=False)
-        model.load_state_dict(torch.load(resume_path, map_location='cpu'))
+        model.load_state_dict(torch.load(resume_path, map_location='cpu', weights_only=False))
     else:
         logging.info("Starting Fresh with Pretrained Weights")
         model = DualHeadCnn14Simple(pretrained=True)

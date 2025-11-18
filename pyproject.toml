@@ -7,7 +7,7 @@ name = "audio-processing-ai"
 version = "0.1.0"
 description = "A deep learning package for analyzing audio files and detecting AI-generated content"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "Audio Processing AI Team"},
@@ -42,6 +42,12 @@ dependencies = [
     "torch-audiomentations>=0.11.0",
     "pandas>=2.0.0",
     "openpyxl>=3.1.0",
+    "typer>=0.20.0",
+    "gradio>=4.44.1,<5.0.0",
+    "modal>=1.2.2",
+    "onnxruntime>=1.23.2",  # Latest version as of Nov 2024
+    "onnx>=1.16.0",  # Latest version as of Nov 2024
+    "huggingface_hub>=0.20.0,<0.23.0"  # Compatible with Gradio 4.44.1
 ]
 
 [project.optional-dependencies]
