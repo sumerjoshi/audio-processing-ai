@@ -84,7 +84,11 @@ class GradioAudioInterface:
             if not ONNXRUNTIME_AVAILABLE:
                 raise ImportError("onnxruntime is required for ONNX models. Install with: pip install onnxruntime")
             try:
-                self.onnx_session = ort.InferenceSession(model_path)
+                # Configure ONNX session options for stability
+                sess_options = ort.SessionOptions()
+                sess_options.intra_op_num_threads = 1  # Avoid threading issues in container
+                sess_options.inter_op_num_threads = 1
+                self.onnx_session = ort.InferenceSession(model_path, sess_options)
                 self.model = None
             except Exception as e:
                 raise RuntimeError(f"Failed to load ONNX model from {model_path}: {str(e)}")
@@ -791,6 +795,7 @@ if MODAL_AVAILABLE:
         volumes={"/models": model_volume},
         timeout=600,  # Increased timeout to 10 minutes
         container_idle_timeout=300, # Keep container alive for 5 minutes
+        gpu="any",  # Use any available GPU
     )
     @modal.concurrent(max_inputs=100)
     @modal.asgi_app()
