@@ -518,7 +518,8 @@ class GradioAudioInterface:
                                 file_types=[".mp3", ".wav", ".flac", ".m4a"],  # Explicit extensions instead of ["audio"]
                                 file_count="single",
                                 value=None,  # Explicitly set to None to avoid Modal's root directory bug
-                                show_label=True
+                                show_label=True,
+                                interactive=True
                             )
                             predict_btn = gradio_module.Button("Detect", variant="primary", size="lg")
                         
@@ -646,6 +647,15 @@ class GradioAudioInterface:
         # Set max_file_size attribute if it doesn't exist (for file uploads)
         if not hasattr(demo, 'max_file_size'):
             demo.max_file_size = 100  # 100MB default
+        
+        # Set root_path to empty string for Modal to prevent '/' path issues
+        # This prevents Gradio from trying to process '/' as a file path on page load
+        if hasattr(demo, 'root_path'):
+            demo.root_path = ""
+        elif hasattr(demo, 'config'):
+            # Try setting it via config if available
+            if hasattr(demo.config, 'root_path'):
+                demo.config.root_path = ""
     
         return demo
     
@@ -783,6 +793,17 @@ if MODAL_AVAILABLE:
         demo = interface.run_gradio()
         
         # In Gradio 4.x, Blocks implements the ASGI interface directly
+        # Set root_path to empty string to prevent '/' path issues in Modal
+        # This is similar to setting root_path="" in demo.launch() but for ASGI deployment
+        try:
+            if hasattr(demo, 'root_path'):
+                demo.root_path = ""
+            # Also try setting via config if available
+            if hasattr(demo, 'config') and hasattr(demo.config, 'root_path'):
+                demo.config.root_path = ""
+        except Exception:
+            pass  # If setting fails, continue anyway - not critical
+        
         # Return the Blocks object directly - it's the ASGI app
         # Don't return demo.app as it breaks internal Gradio functionality (like max_file_size)
         if not callable(demo):
