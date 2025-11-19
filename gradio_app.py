@@ -3,13 +3,34 @@ import os
 import tempfile
 import zipfile
 import shutil
+import time
 from pathlib import Path 
 from datetime import datetime
 import numpy as np
-import torch
-import pandas as pd
 import traceback
-import matplotlib
+
+# Conditional imports for Modal deploy-time parsing
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+    pd = None
+
+try:
+    import matplotlib
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
+    matplotlib = None
+
+# Conditional imports - only import torch if needed (for local PyTorch mode)
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+    torch = None
 
 from predict import (
     preprocess_audio,
@@ -71,7 +92,11 @@ except ImportError:
     GRADIO_AVAILABLE = False
     gr = None
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Device definition - only needed for PyTorch mode
+if TORCH_AVAILABLE:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+else:
+    device = None  # Not needed for ONNX mode
 
 class GradioAudioInterface:
     def __init__(self, model_path: str, threshold: float = DEFAULT_THRESHOLD, use_onnx: bool = False, is_modal: bool = False):
@@ -84,16 +109,59 @@ class GradioAudioInterface:
             if not ONNXRUNTIME_AVAILABLE:
                 raise ImportError("onnxruntime is required for ONNX models. Install with: pip install onnxruntime")
             try:
+                print(f"[{time.strftime('%H:%M:%S')}] Loading ONNX model from: {model_path}")
+                
                 # Configure ONNX session options for stability
                 sess_options = ort.SessionOptions()
                 sess_options.intra_op_num_threads = 1  # Avoid threading issues in container
                 sess_options.inter_op_num_threads = 1
-                self.onnx_session = ort.InferenceSession(model_path, sess_options)
+                
+                # Try to use GPU if available (for Modal GPU instances)
+                # NOTE: Start with CPU to avoid GPU provider issues that can cause hangs
+                providers = ['CPUExecutionProvider']
+                
+                if is_modal:
+                    # On Modal with GPU, try CUDA provider but only if explicitly needed
+                    # CPU is more reliable and avoids hanging issues
+                    available_providers = ort.get_available_providers()
+                    if 'CUDAExecutionProvider' in available_providers:
+                        # Add CUDA as fallback (will use CPU first, then GPU if CPU fails)
+                        # Actually, let's use CPU only for now to avoid hanging
+                        print(f"[{time.strftime('%H:%M:%S')}] CUDAExecutionProvider available but using CPU for stability")
+                        # providers.insert(0, 'CUDAExecutionProvider')  # Uncomment to try GPU
+                    else:
+                        print(f"[{time.strftime('%H:%M:%S')}] CUDAExecutionProvider not available, using CPU")
+                
+                print(f"[{time.strftime('%H:%M:%S')}] Using providers: {providers}")
+                
+                load_start = time.time()
+                self.onnx_session = ort.InferenceSession(
+                    model_path, 
+                    sess_options,
+                    providers=providers
+                )
+                load_time = time.time() - load_start
+                print(f"[{time.strftime('%H:%M:%S')}] ONNX model loaded in {load_time:.2f}s")
+                print(f"[{time.strftime('%H:%M:%S')}] Using providers: {self.onnx_session.get_providers()}")
+                
+                # Log model input/output info
+                for input_info in self.onnx_session.get_inputs():
+                    print(f"[{time.strftime('%H:%M:%S')}] Model input: {input_info.name}, shape: {input_info.shape}, type: {input_info.type}")
+                for output_info in self.onnx_session.get_outputs():
+                    print(f"[{time.strftime('%H:%M:%S')}] Model output: {output_info.name}, shape: {output_info.shape}, type: {output_info.type}")
+                
                 self.model = None
             except Exception as e:
-                raise RuntimeError(f"Failed to load ONNX model from {model_path}: {str(e)}")
+                error_msg = f"Failed to load ONNX model from {model_path}: {str(e)}"
+                print(f"[{time.strftime('%H:%M:%S')}] {error_msg}")
+                print(f"[{time.strftime('%H:%M:%S')}] Traceback: {traceback.format_exc()}")
+                raise RuntimeError(error_msg)
         else:
             # PyTorch model loading
+            if not TORCH_AVAILABLE:
+                raise ImportError("PyTorch is required for PyTorch models. Install with: pip install torch")
+            if device is None:
+                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             self.model = DualHeadCnn14Simple(pretrained=False)
             self.model.load_state_dict(torch.load(self.model_path, map_location=device, weights_only=False))
             self.model.eval().to(device)
@@ -181,36 +249,96 @@ class GradioAudioInterface:
                 return f"Error: Path is not a regular file: {audio_file}. Got type: {type(audio_path)}", None, empty_df
             
             # Preprocess audio file
-            print(f"Processing audio file: {audio_file}")
+            print(f"[{time.strftime('%H:%M:%S')}] Processing audio file: {audio_file}", flush=True)
+            import sys
+            sys.stdout.flush()
+            preprocess_start = time.time()
             input_data = preprocess_audio(str(audio_file))
-            print("Audio preprocessing complete")
+            preprocess_time = time.time() - preprocess_start
+            print(f"[{time.strftime('%H:%M:%S')}] Audio preprocessing completed in {preprocess_time:.2f}s", flush=True)
+            print(f"[{time.strftime('%H:%M:%S')}] Preprocessed tensor shape: {input_data.shape}, dtype: {input_data.dtype}", flush=True)
+            sys.stdout.flush()
             
             if self.onnx:
                 # ONNX inference
-                print("Starting ONNX inference...")
+                start_time = time.time()
+                print(f"[{time.strftime('%H:%M:%S')}] Starting ONNX inference...")
+                
                 # input_data shape: [1, audio_length] -> squeeze to [audio_length] -> reshape to [1, audio_length]
                 input_tensor = input_data.squeeze(0).numpy().reshape(1, -1).astype(np.float32)
+                print(f"[{time.strftime('%H:%M:%S')}] Input tensor shape: {input_tensor.shape}, dtype: {input_tensor.dtype}")
                 
                 # Verify input shape matches ONNX model expectations
                 if self.onnx_session is None:
-                    print("Error: ONNX session is None")
-                    return "Error: ONNX session not initialized", None, empty_df
+                    error_msg = "Error: ONNX session not initialized"
+                    print(f"[{time.strftime('%H:%M:%S')}] {error_msg}", flush=True)
+                    return error_msg, None, empty_df
                 
-                print("Running session.run()...")
-                outputs = self.onnx_session.run(
-                    ['binary_logit', 'tag_logits'],
-                    {'audio': input_tensor}
-                )
-                print("Inference complete")
+                import sys
+                sys.stdout.flush()
+                
+                # Get expected input shape from model
+                try:
+                    input_name = self.onnx_session.get_inputs()[0].name
+                    expected_shape = self.onnx_session.get_inputs()[0].shape
+                    print(f"[{time.strftime('%H:%M:%S')}] Model expects input '{input_name}' with shape: {expected_shape}", flush=True)
+                except Exception as e:
+                    print(f"[{time.strftime('%H:%M:%S')}] Warning: Could not get model input info: {e}", flush=True)
+                
+                print(f"[{time.strftime('%H:%M:%S')}] Running ONNX session.run()...", flush=True)
+                sys.stdout.flush()
+                
+                try:
+                    inference_start = time.time()
+                    
+                    # Ensure input is contiguous and correct shape
+                    if not input_tensor.flags['C_CONTIGUOUS']:
+                        input_tensor = np.ascontiguousarray(input_tensor)
+                    
+                    # Validate input shape matches expected
+                    print(f"[{time.strftime('%H:%M:%S')}] Expected shape: {expected_shape}, Got: {input_tensor.shape}", flush=True)
+                    
+                    # Handle dynamic batch dimension
+                    if len(expected_shape) == 2 and (expected_shape[0] == -1 or expected_shape[0] == 'batch_size'):
+                        # Dynamic batch size - ensure we have batch dimension
+                        if len(input_tensor.shape) == 1:
+                            input_tensor = input_tensor.reshape(1, -1)
+                        print(f"[{time.strftime('%H:%M:%S')}] Final input shape: {input_tensor.shape}", flush=True)
+                    
+                    # Run inference with explicit input name
+                    print(f"[{time.strftime('%H:%M:%S')}] Calling session.run()...", flush=True)
+                    print(f"[{time.strftime('%H:%M:%S')}] Active providers: {self.onnx_session.get_providers()}", flush=True)
+                    sys.stdout.flush()
+                    
+                    # This is the critical call - if it hangs, we'll see it in logs
+                    outputs = self.onnx_session.run(
+                        ['binary_logit', 'tag_logits'],
+                        {input_name: input_tensor}
+                    )
+                    inference_time = time.time() - inference_start
+                    print(f"[{time.strftime('%H:%M:%S')}] ONNX inference completed in {inference_time:.2f}s", flush=True)
+                    sys.stdout.flush()
+                except Exception as e:
+                    error_msg = f"ONNX inference failed: {str(e)}"
+                    print(f"[{time.strftime('%H:%M:%S')}] {error_msg}")
+                    print(f"[{time.strftime('%H:%M:%S')}] Traceback: {traceback.format_exc()}")
+                    return error_msg, None, empty_df
+                
                 binary_logit, _ = outputs
+                print(f"[{time.strftime('%H:%M:%S')}] Raw binary_logit: {binary_logit}, shape: {binary_logit.shape}")
+                
                 # Convert numpy scalar to Python float for consistency
                 ai_prob = float(1 / (1 + np.exp(-binary_logit[0, 0])))
+                total_time = time.time() - start_time
+                print(f"[{time.strftime('%H:%M:%S')}] Total ONNX processing time: {total_time:.2f}s, AI probability: {ai_prob:.3f}")
             else:
                 # PyTorch inference
                 print("Starting PyTorch inference...")
                 if self.model is None:
                     return "Error: PyTorch model not initialized", None, empty_df
                 
+                if device is None:
+                    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
                 input_tensor = input_data.to(device)
                 ai_prob = predict_ai_only(self.model, input_tensor)
                 # Ensure it's a Python float
@@ -380,6 +508,8 @@ class GradioAudioInterface:
                             ai_prob = float(1 / (1 + np.exp(-binary_logit[0, 0])))
                         else:
                             # PyTorch inference
+                            if device is None:
+                                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
                             input_tensor = input_data.to(device)
                             ai_prob = predict_ai_only(self.model, input_tensor)
                         
@@ -534,6 +664,19 @@ class GradioAudioInterface:
             theme=gradio_module.themes.Soft()
         )
         
+        # Configure queue for long-running requests
+        # Note: Modal's ASGI wrapper handles concurrency, so we use a higher limit
+        try:
+            demo.queue(
+                default_concurrency_limit=10,  # Higher limit - Modal handles actual concurrency
+                max_size=50,  # Allow more queued requests
+                api_open=False  # Don't expose queue API
+            )
+            print("Gradio queue configured successfully")
+        except Exception as e:
+            print(f"Warning: Could not configure Gradio queue: {e}")
+            # Continue anyway - queue might not be available in all Gradio versions
+        
         with demo:
             gradio_module.Markdown("""
                 # AI-Generated Audio Detection
@@ -571,30 +714,64 @@ class GradioAudioInterface:
                     
                     def safe_predict(audio_file):
                         """Wrapper to catch Gradio preprocessing errors and Modal's root directory bug"""
+                        import sys
+                        # Log to both stdout and stderr for maximum visibility in Modal
+                        log_msg = f"[{time.strftime('%H:%M:%S')}] ===== safe_predict CALLED ====="
+                        print(log_msg, flush=True)
+                        print(log_msg, file=sys.stderr, flush=True)
+                        sys.stdout.flush()
+                        sys.stderr.flush()
+                        
+                        log_msg = f"[{time.strftime('%H:%M:%S')}] audio_file type: {type(audio_file)}, value: {audio_file}"
+                        print(log_msg, flush=True)
+                        print(log_msg, file=sys.stderr, flush=True)
+                        sys.stdout.flush()
+                        sys.stderr.flush()
+                        
                         # Early filter for Modal's root directory bug
                         if audio_file is None:
+                            print(f"[{time.strftime('%H:%M:%S')}] audio_file is None, returning early", flush=True)
                             return self.__predict_single_audio(None)
                         # Handle list inputs (Modal/Gradio might return lists)
                         if isinstance(audio_file, list):
                             if len(audio_file) == 0:
+                                print(f"[{time.strftime('%H:%M:%S')}] audio_file is empty list, returning early", flush=True)
                                 return self.__predict_single_audio(None)
                             audio_file = audio_file[0]
+                            print(f"[{time.strftime('%H:%M:%S')}] Extracted from list: {audio_file}", flush=True)
                         # Filter out root directory and favicon (Modal bug)
                         # Also check if it's a directory
                         if isinstance(audio_file, str):
                             if audio_file == "/" or audio_file == "/favicon.ico" or audio_file == "" or audio_file == ".":
+                                print(f"[{time.strftime('%H:%M:%S')}] Invalid path detected: {audio_file}, returning early", flush=True)
                                 return self.__predict_single_audio(None)
                             # Check if it's a directory path
                             try:
                                 import os
                                 if os.path.isdir(audio_file):
+                                    print(f"[{time.strftime('%H:%M:%S')}] Path is directory: {audio_file}, returning early", flush=True)
                                     return self.__predict_single_audio(None)
-                            except Exception:
+                            except Exception as e:
+                                print(f"[{time.strftime('%H:%M:%S')}] Error checking if directory: {e}", flush=True)
                                 pass  # If check fails, continue
+                        
+                        log_msg = f"[{time.strftime('%H:%M:%S')}] Calling __predict_single_audio with: {audio_file}"
+                        print(log_msg, flush=True)
+                        print(log_msg, file=sys.stderr, flush=True)
+                        sys.stdout.flush()
+                        sys.stderr.flush()
+                        
                         try:
-                            return self.__predict_single_audio(audio_file)
+                            result = self.__predict_single_audio(audio_file)
+                            log_msg = f"[{time.strftime('%H:%M:%S')}] ===== safe_predict completed successfully ====="
+                            print(log_msg, flush=True)
+                            print(log_msg, file=sys.stderr, flush=True)
+                            sys.stdout.flush()
+                            sys.stderr.flush()
+                            return result
                         except (IsADirectoryError, OSError) as e:
                             # Handle directory errors gracefully
+                            print(f"[{time.strftime('%H:%M:%S')}] Directory error caught: {e}", flush=True)
                             if "Is a directory" in str(e) or "IsADirectoryError" in str(type(e).__name__):
                                 return self.__predict_single_audio(None)
                             raise
@@ -605,6 +782,8 @@ class GradioAudioInterface:
                             error_msg += "- Corrupted audio file\n"
                             error_msg += "- Missing audio codecs\n\n"
                             error_msg += f"Technical details: {traceback.format_exc()}"
+                            print(f"[{time.strftime('%H:%M:%S')}] Exception in safe_predict: {error_msg}", flush=True)
+                            sys.stdout.flush()
                             empty_df = pd.DataFrame(columns=['Filename', 'AI-Generated', 'Confidence', 'Genre', 'Mood', 'Tempo (BPM)', 'Energy'])
                             return error_msg, None, empty_df
                     
@@ -794,11 +973,10 @@ if MODAL_AVAILABLE:
         image=image,
         volumes={"/models": model_volume},
         timeout=600,  # Increased timeout to 10 minutes
-        container_idle_timeout=300, # Keep container alive for 5 minutes
-        gpu="any",  # Use any available GPU
+        scaledown_window=300,  # Keep container alive for 5 minutes (renamed from container_idle_timeout)
+        # Removed gpu="any" since we're using CPU for ONNX inference
     )
-    @modal.concurrent(max_inputs=100)
-    @modal.asgi_app()
+    @modal.asgi_app()  # Outermost decorator - ASGI apps handle concurrency internally
     def gradio_app_modal():
         """Modal deployment function - uses ONNX model from volume."""
         import sys
@@ -843,11 +1021,12 @@ if MODAL_AVAILABLE:
         except Exception:
             pass  # If setting fails, continue anyway - not critical
         
-        # Return the underlying FastAPI app which is ASGI compatible
+        # Return the ASGI-compatible app
+        # Gradio Blocks are ASGI-compatible, but demo.app (FastAPI) is more explicit
         if hasattr(demo, "app"):
-            return demo.app
+            return demo.app  # FastAPI instance - preferred for Modal
         elif callable(demo):
-            return demo
+            return demo  # Gradio Blocks are also ASGI-compatible
         else:
             raise RuntimeError(f"Expected an ASGI app, but got {type(demo)}")
         

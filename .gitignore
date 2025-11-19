@@ -302,3 +302,4 @@ predictions_*.xlsx
 *.pth.gz
 
 EVALUATION_EXPLANATION.md
+MODAL*.md
