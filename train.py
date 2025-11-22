@@ -128,7 +128,7 @@ def train_loop(
             # Fix label smoothing
             labels = torch.where(labels > 0.5, 1 - smooth/2, smooth/2)
             
-            # Forward pass
+            # Forward pass (not using tag_logits)
             binary_logits, _ = model(each_input)
             loss = loss_fn(binary_logits, labels)
             

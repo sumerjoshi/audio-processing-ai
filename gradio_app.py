@@ -160,11 +160,23 @@ class GradioAudioInterface:
             # PyTorch model loading
             if not TORCH_AVAILABLE:
                 raise ImportError("PyTorch is required for PyTorch models. Install with: pip install torch")
-            if device is None:
-                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            
+            print(f"[{time.strftime('%H:%M:%S')}] Loading PyTorch model from: {model_path}")
+            
+            # Create device for this instance (don't rely on module-level device)
+            model_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            
+            print(f"[{time.strftime('%H:%M:%S')}] Using device: {model_device}")
+            
+            load_start = time.time()
             self.model = DualHeadCnn14Simple(pretrained=False)
-            self.model.load_state_dict(torch.load(self.model_path, map_location=device, weights_only=False))
-            self.model.eval().to(device)
+            self.model.load_state_dict(torch.load(self.model_path, map_location=model_device, weights_only=False))
+            self.model.eval().to(model_device)
+            load_time = time.time() - load_start
+            print(f"[{time.strftime('%H:%M:%S')}] PyTorch model loaded in {load_time:.2f}s on {model_device}")
+            
+            # Store device for later use in inference
+            self.device = model_device
             self.onnx_session = None
         
         
@@ -333,19 +345,35 @@ class GradioAudioInterface:
                 print(f"[{time.strftime('%H:%M:%S')}] Total ONNX processing time: {total_time:.2f}s, AI probability: {ai_prob:.3f}")
             else:
                 # PyTorch inference
-                print("Starting PyTorch inference...")
-                if self.model is None:
-                    return "Error: PyTorch model not initialized", None, empty_df
+                print(f"[{time.strftime('%H:%M:%S')}] Starting PyTorch inference...", flush=True)
+                import sys
+                sys.stdout.flush()
                 
-                if device is None:
-                    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-                input_tensor = input_data.to(device)
+                if self.model is None:
+                    error_msg = "Error: PyTorch model not initialized"
+                    print(f"[{time.strftime('%H:%M:%S')}] {error_msg}", flush=True)
+                    return error_msg, None, empty_df
+                
+                # Use the device stored during model loading
+                inference_device = getattr(self, 'device', torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+                
+                print(f"[{time.strftime('%H:%M:%S')}] Using device: {inference_device}", flush=True)
+                inference_start = time.time()
+                
+                input_tensor = input_data.to(inference_device)
+                print(f"[{time.strftime('%H:%M:%S')}] Input tensor moved to device, shape: {input_tensor.shape}", flush=True)
+                sys.stdout.flush()
+                
                 ai_prob = predict_ai_only(self.model, input_tensor)
+                
                 # Ensure it's a Python float
                 if isinstance(ai_prob, torch.Tensor):
                     ai_prob = ai_prob.item()
                 ai_prob = float(ai_prob)
-                print("Inference complete")
+                
+                inference_time = time.time() - inference_start
+                print(f"[{time.strftime('%H:%M:%S')}] PyTorch inference completed in {inference_time:.2f}s, AI probability: {ai_prob:.3f}", flush=True)
+                sys.stdout.flush()
             
             is_ai = ai_prob > self.threshold
             result = f"**AI-Generated: {'Yes' if is_ai else 'No'}**\n"
@@ -664,18 +692,21 @@ class GradioAudioInterface:
             theme=gradio_module.themes.Soft()
         )
         
-        # Configure queue for long-running requests
-        # Note: Modal's ASGI wrapper handles concurrency, so we use a higher limit
-        try:
-            demo.queue(
-                default_concurrency_limit=10,  # Higher limit - Modal handles actual concurrency
-                max_size=50,  # Allow more queued requests
-                api_open=False  # Don't expose queue API
-            )
-            print("Gradio queue configured successfully")
-        except Exception as e:
-            print(f"Warning: Could not configure Gradio queue: {e}")
-            # Continue anyway - queue might not be available in all Gradio versions
+        # For Modal ASGI deployment, don't use queue - Modal handles concurrency
+        # Queue causes session management issues with ASGI
+        if not self.is_modal:
+            # Only enable queue for local deployment
+            try:
+                demo.queue(
+                    default_concurrency_limit=10,
+                    max_size=50,
+                    api_open=False
+                )
+                print("Gradio queue configured successfully (local mode)")
+            except Exception as e:
+                print(f"Warning: Could not configure Gradio queue: {e}")
+        else:
+            print("Gradio queue disabled for Modal ASGI deployment")
         
         with demo:
             gradio_module.Markdown("""
@@ -864,14 +895,10 @@ class GradioAudioInterface:
         if not hasattr(demo, 'max_file_size'):
             demo.max_file_size = 1024 * 1024 * 1024  # 1 GB limit
     
-        # Set root_path to empty string for Modal to prevent '/' path issues
-        # This prevents Gradio from trying to process '/' as a file path on page load
-        if hasattr(demo, 'root_path'):
-            demo.root_path = ""
-        elif hasattr(demo, 'config'):
-            # Try setting it via config if available
-            if hasattr(demo.config, 'root_path'):
-                demo.config.root_path = ""
+        # For Modal ASGI deployment, don't set root_path
+        # Gradio handles routing automatically for ASGI apps
+        # Setting root_path to "" can break session management and cause "Session not found" errors
+        # The monkey-patch for hash_file handles the '/' path issue instead
     
         return demo
     
@@ -974,11 +1001,11 @@ if MODAL_AVAILABLE:
         volumes={"/models": model_volume},
         timeout=600,  # Increased timeout to 10 minutes
         scaledown_window=300,  # Keep container alive for 5 minutes (renamed from container_idle_timeout)
-        # Removed gpu="any" since we're using CPU for ONNX inference
+        gpu="any",  # Use GPU for PyTorch inference
     )
     @modal.asgi_app()  # Outermost decorator - ASGI apps handle concurrency internally
     def gradio_app_modal():
-        """Modal deployment function - uses ONNX model from volume."""
+        """Modal deployment function - uses PyTorch model from volume."""
         import sys
         import os
         sys.path.insert(0, "/root")
@@ -990,45 +1017,46 @@ if MODAL_AVAILABLE:
         # Set environment variable for Gradio cache
         os.environ["GRADIO_TEMP_DIR"] = gradio_cache_dir
         
-        ONNX_MODEL_PATH = "/models/model.onnx"
+        PYTORCH_MODEL_PATH = "/models/model.pth"
         THRESHOLD = DEFAULT_THRESHOLD
         
         # Check if model exists, if not provide helpful error
-        if not os.path.exists(ONNX_MODEL_PATH):
+        if not os.path.exists(PYTORCH_MODEL_PATH):
             raise FileNotFoundError(
-                f"ONNX model not found at {ONNX_MODEL_PATH}. "
+                f"PyTorch model not found at {PYTORCH_MODEL_PATH}. "
                 "Please upload your model to the Modal volume first using:\n"
-                "modal volume put ai-audio-models /path/to/your/model.onnx model.onnx"
+                "modal volume put ai-audio-models /path/to/your/model.pth model.pth"
             )
         
         interface = GradioAudioInterface(
-            model_path=ONNX_MODEL_PATH,
+            model_path=PYTORCH_MODEL_PATH,
             threshold=THRESHOLD,
-            use_onnx=True,
+            use_onnx=False,  # Use PyTorch instead of ONNX
             is_modal=True
         )
         demo = interface.run_gradio()
         
-        # In Gradio 4.x, Blocks implements the ASGI interface directly
-        # Set root_path to empty string to prevent '/' path issues in Modal
-        # This is similar to setting root_path="" in demo.launch() but for ASGI deployment
-        try:
-            if hasattr(demo, 'root_path'):
-                demo.root_path = ""
-            # Also try setting via config if available
-            if hasattr(demo, 'config') and hasattr(demo.config, 'root_path'):
-                demo.config.root_path = ""
-        except Exception:
-            pass  # If setting fails, continue anyway - not critical
+        # For Modal ASGI deployment, don't modify root_path
+        # Gradio handles routing automatically for ASGI apps
+        # Modifying root_path can break session management
         
         # Return the ASGI-compatible app
-        # Gradio Blocks are ASGI-compatible, but demo.app (FastAPI) is more explicit
-        if hasattr(demo, "app"):
-            return demo.app  # FastAPI instance - preferred for Modal
-        elif callable(demo):
-            return demo  # Gradio Blocks are also ASGI-compatible
-        else:
-            raise RuntimeError(f"Expected an ASGI app, but got {type(demo)}")
+        # For Modal, we should return demo.app (FastAPI) which handles ASGI properly
+        # This avoids session management issues with Gradio's queue system
+        try:
+            if hasattr(demo, "app"):
+                # FastAPI instance - preferred for Modal ASGI deployment
+                # This properly handles session management without queue conflicts
+                return demo.app
+            elif callable(demo):
+                # Gradio Blocks are ASGI-compatible but may have session issues
+                return demo
+            else:
+                raise RuntimeError(f"Expected an ASGI app, but got {type(demo)}")
+        except Exception as e:
+            print(f"Error getting ASGI app: {e}")
+            # Fallback: return demo directly
+            return demo
         
 
 if __name__ == "__main__":
